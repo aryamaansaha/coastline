@@ -2,12 +2,13 @@ from pydantic import BaseModel
 from typing import Literal
 from datetime import datetime
 
-# Preferences we obtain from the initial user input
+# Preferences we obtain from the initial user input 
 class Preferences(BaseModel):
     destinations: list[str]
     start_date: datetime
     end_date: datetime
-    budget: float
+    budget_limit: float
+    # ... other preferences like food preferences, activity preferences, etc.
 
 # Location we obtain from the LLM (as part of the ItineraryLLMCreate output itself)
 class LocationLLMCreate(BaseModel):
@@ -51,10 +52,10 @@ class Day(DayLLMCreate):
 # LLM generates this object, we hope to validate it against the ItineraryLLMCreate schema
 class ItineraryLLMCreate(BaseModel):
     trip_title: str
-    total_budget_limit: float
     days: list[DayLLMCreate]
 
 # Final Itinerary object; part of the Itinerary object we want to persist
 class Itinerary(ItineraryLLMCreate):
     id: str
     days: list[Day]
+    budget_limit: float
