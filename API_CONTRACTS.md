@@ -16,7 +16,7 @@ Each item in a day (Hotel, Meal, Museum) follows this structure.
   "time_slot": "10:00 AM",
   "title": "Louvre Museum",
   "description": "World's largest art museum...",
-  "activity_suggestion": "Stand in line a little early, spend some time doing X, Y till Z time <could be a few sentences>"
+  "activity_suggestion": "Stand in line a little early, spend some time doing X, Y till Z time <could be a few sentences>",
   "location": {
     "name": "Musée du Louvre",
     "lat": 48.8606,
