@@ -38,7 +38,11 @@ class DiscoveryService:
         places = []
         for p in raw_places:
             # Geocode place address to get lat/lng
-            place_lat, place_lng = LocalizeService.geocode_nominatim(p.get('address', ''))
+            geocode_result = LocalizeService.geocode_nominatim(p.get('address', ''))
+            if geocode_result:
+                place_lat, place_lng = geocode_result
+            else:
+                place_lat, place_lng = 0.0, 0.0  # Default if geocoding fails
             
             places.append(DiscoveredPlace(
                 id=str(uuid.uuid4()),
@@ -48,8 +52,8 @@ class DiscoveryService:
                 rating=float(p.get('rating', 0.0)),
                 price_range=p.get('price_range') or 'N/A',  # Handle None from API
                 google_maps_url=p.get('google_maps_url', ''),
-                lat=place_lat or 0.0,
-                lng=place_lng or 0.0,
+                lat=place_lat,
+                lng=place_lng,
                 starred=False,
                 extra_data={}
             ))
