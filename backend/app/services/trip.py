@@ -5,7 +5,7 @@ import uuid
 class TripService:
     @staticmethod
     def generate_trip(preferences: Preferences) -> Itinerary:
-        """Generate a mock itinerary for testing"""
+        """Generate a mock itinerary for testing (will be replaced by agent later)"""
         
         # Mock activities for Day 1
         day1_activities = [
@@ -141,3 +141,72 @@ class TripService:
         )
         
         return itinerary
+    
+    @staticmethod
+    def save_itinerary(db, itinerary: Itinerary) -> str:
+        """Save itinerary to MongoDB"""
+        doc = itinerary.model_dump()
+        doc["created_at"] = datetime.now()
+        doc["updated_at"] = datetime.now()
+        
+        # Upsert to handle both create and update
+        db.itineraries.update_one(
+            {"trip_id": itinerary.id},
+            {"$set": doc},
+            upsert=True
+        )
+        return itinerary.id
+    
+    @staticmethod
+    def get_itinerary(db, trip_id: str) -> Itinerary | None:
+        """Retrieve itinerary from MongoDB"""
+        doc = db.itineraries.find_one({"trip_id": trip_id})
+        if not doc:
+            return None
+        
+        # Remove MongoDB's _id field for Pydantic parsing
+        doc.pop("_id", None)
+        doc.pop("created_at", None)
+        doc.pop("updated_at", None)
+        
+        return Itinerary(**doc)
+    
+    @staticmethod
+    def get_activity(db, trip_id: str, activity_id: str) -> Activity | None:
+        """Get a specific activity from an itinerary"""
+        itinerary = TripService.get_itinerary(db, trip_id)
+        if not itinerary:
+            return None
+        
+        for day in itinerary.days:
+            for activity in day.activities:
+                if activity.id == activity_id:
+                    return activity
+        return None
+    
+    @staticmethod
+    def update_itinerary(db, trip_id: str, itinerary: Itinerary) -> bool:
+        """Update an existing itinerary"""
+        existing = TripService.get_itinerary(db, trip_id)
+        if not existing:
+            return False
+        
+        doc = itinerary.model_dump()
+        doc["updated_at"] = datetime.now()
+        
+        db.itineraries.update_one(
+            {"trip_id": trip_id},
+            {"$set": doc}
+        )
+        return True
+    
+    @staticmethod
+    def delete_itinerary(db, trip_id: str) -> bool:
+        """Delete an itinerary and all associated discoveries"""
+        # Delete itinerary
+        result = db.itineraries.delete_one({"trip_id": trip_id})
+        
+        # Delete all associated discoveries
+        db.discoveries.delete_many({"trip_id": trip_id})
+        
+        return result.deleted_count > 0
