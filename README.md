@@ -97,7 +97,7 @@ When adding new features:
 1. Update Pydantic schemas in `app/schemas/`
 2. Add business logic in `app/services/`
 3. Create routes in `app/routers/`
-4. Update `API.md` with new endpoints
+4. Update `API_REFERENCE.md` with new endpoints
 5. Test with Swagger UI at `/docs`
 
 ---
