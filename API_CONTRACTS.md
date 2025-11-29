@@ -12,7 +12,7 @@ Each item in a day (Hotel, Meal, Museum) follows this structure.
 ```json
 {
   "id": "uuid-string",
-  "type": "flight | hotel | food | activity",
+  "type": "flight | hotel | activity",
   "time_slot": "10:00 AM",
   "title": "Louvre Museum",
   "description": "World's largest art museum...",

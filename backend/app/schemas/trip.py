@@ -22,7 +22,7 @@ class Location(LocationLLMCreate):
 
 # Activity we obtain from the LLM (as part of the ItineraryLLMCreate output itself)
 class ActivityLLMCreate(BaseModel):
-    type: Literal["flight", "hotel", "food", "activity"]
+    type: Literal["flight", "hotel", "activity"]
     time_slot: str
     title: str
     description: str
