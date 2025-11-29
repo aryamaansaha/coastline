@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import localizer, trip, user, discovery
 from app.database import initialize_indexes
+import os
 
 app = FastAPI(
     title="Coastline API",
@@ -34,5 +35,9 @@ def read_root():
     return {
         "message": "Coastline API - AI Travel Planner",
         "version": "0.1.0",
-        "docs": "/docs"
+        "docs": "/docs",
+        "run_hint": "To run on port 8008, start with: uvicorn app.main:app --reload --port 8008"
     }
+
+# Hint: Run your server on port 8008 with:
+# uvicorn app.main:app --reload --port 8008
