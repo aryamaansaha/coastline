@@ -2,3 +2,9 @@
 .venv/
 .env.local
 __pycache__/
+*.pyc
+.DS_Store
+*.log
+node_modules/
+dist/
+build/
