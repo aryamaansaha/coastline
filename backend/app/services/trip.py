@@ -134,7 +134,7 @@ class TripService:
         
         # Create itinerary
         itinerary = Itinerary(
-            id=str(uuid.uuid4()),
+            trip_id=str(uuid.uuid4()),
             trip_title="2 Days in Paris",
             days=[day1, day2],
             budget_limit=preferences.budget_limit
@@ -151,11 +151,11 @@ class TripService:
         
         # Upsert to handle both create and update
         db.itineraries.update_one(
-            {"trip_id": itinerary.id},
+            {"trip_id": itinerary.trip_id},
             {"$set": doc},
             upsert=True
         )
-        return itinerary.id
+        return itinerary.trip_id
     
     @staticmethod
     def get_itinerary(db, trip_id: str) -> Itinerary | None:

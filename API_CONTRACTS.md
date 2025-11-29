@@ -31,11 +31,12 @@ Each item in a day (Hotel, Meal, Museum) follows this structure.
 ### Itinerary Object (The Main Payload)
 ```json
 {
-  "trip_id": "mongo-object-id",
+  "trip_id": "uuid-string",
   "trip_title": "3 Days in Paris",
-  "total_budget_limit": 1000,
+  "budget_limit": 1000,
   "days": [
     {
+      "id": "day-uuid-string",
       "day_number": 1,
       "theme": "Art & History",
       "activities": [ ...Array of Activity Objects... ]

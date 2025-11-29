@@ -56,6 +56,6 @@ class ItineraryLLMCreate(BaseModel):
 
 # Final Itinerary object; part of the Itinerary object we want to persist
 class Itinerary(ItineraryLLMCreate):
-    id: str
+    trip_id: str
     days: list[Day]
     budget_limit: float
