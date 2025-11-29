@@ -19,7 +19,7 @@ class DiscoveredPlace(BaseModel):
     name: str
     address: str
     rating: float
-    price_range: str
+    price_range: str | None = "N/A"  # Allow None from API, default to "N/A"
     google_maps_url: str
     lat: float
     lng: float

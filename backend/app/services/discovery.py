@@ -46,7 +46,7 @@ class DiscoveryService:
                 name=p.get('name', ''),
                 address=p.get('address', ''),
                 rating=float(p.get('rating', 0.0)),
-                price_range=p.get('price_range', '$$'),
+                price_range=p.get('price_range') or 'N/A',  # Handle None from API
                 google_maps_url=p.get('google_maps_url', ''),
                 lat=place_lat or 0.0,
                 lng=place_lng or 0.0,
