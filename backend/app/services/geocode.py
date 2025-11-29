@@ -31,9 +31,33 @@ class LocalizeService:
 
     @staticmethod
     def localize_restaurants(lat: float, lng: float, return_grounding_info: bool = False):
-        prompt = LOCALIZATION_PROMPT
+        """Legacy method - calls discover_places with restaurant prompt"""
+        return LocalizeService.discover_places(
+            lat, lng, "restaurant", return_grounding_info
+        )
+    
+    @staticmethod
+    def discover_places(lat: float, lng: float, place_type: str = "restaurant", return_grounding_info: bool = False):
+        """
+        Generic place discovery using Gemini + Google Maps grounding.
+        
+        Args:
+            lat: Latitude
+            lng: Longitude
+            place_type: Type of place (restaurant, bar, cafe, club, shopping, attraction)
+            return_grounding_info: Whether to return grounding metadata
+        
+        Returns:
+            Tuple of (places_list, grounding_metadata)
+        """
+        from app.prompts import PROMPT_MAP
+        
+        # Get appropriate prompt for place type
+        prompt = PROMPT_MAP.get(place_type, PROMPT_MAP["restaurant"])
+        
         client = genai.Client()
-        print(f"DEBUG: Calling API with lat={lat}, lng={lng}")
+        print(f"DEBUG: Discovering {place_type} with lat={lat}, lng={lng}")
+        
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
