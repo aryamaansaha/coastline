@@ -4,114 +4,6 @@
       "type": "hotel-offers",
       "hotel": {
         "type": "hotel",
-        "hotelId": "CPATH15B",
-        "chainCode": "CP",
-        "dupeId": "700081489",
-        "name": "CROWNE PLAZA ATHENS CITYCENTRE",
-        "cityCode": "ATH",
-        "latitude": 37.97722,
-        "longitude": 23.75509
-      },
-      "available": true,
-      "offers": [
-        {
-          "id": "U227RW9IMJ",
-          "checkInDate": "2026-01-01",
-          "checkOutDate": "2026-01-08",
-          "rateCode": "005",
-          "boardType": "ROOM_ONLY",
-          "room": {
-            "type": "*RH",
-            "typeEstimated": {
-              "category": "STANDARD_ROOM"
-            },
-            "description": {
-              "text": "BOOK EARLY ADVANCE PURCHASE\nStandard Room When you arrive at the hotel we\nwill do our best to meet your room type",
-              "lang": "EN"
-            }
-          },
-          "guests": {
-            "adults": 2
-          },
-          "price": {
-            "currency": "EUR",
-            "base": "1071.00",
-            "total": "1244.32",
-            "taxes": [
-              {
-                "code": "TOTAL_TAX",
-                "amount": "4.00",
-                "included": false
-              },
-              {
-                "code": "TOTAL_TAX",
-                "percentage": "13.57",
-                "included": false
-              }
-            ],
-            "variations": {
-              "average": {
-                "base": "153.00"
-              },
-              "changes": [
-                {
-                  "startDate": "2026-01-01",
-                  "endDate": "2026-01-08",
-                  "base": "153.00"
-                }
-              ]
-            }
-          },
-          "policies": {
-            "cancellations": [
-              {
-                "policyType": "CANCELLATION"
-              }
-            ],
-            "prepay": {
-              "acceptedPayments": {
-                "creditCards": [
-                  "AX",
-                  "VI",
-                  "CA"
-                ],
-                "methods": [
-                  "CREDIT_CARD"
-                ],
-                "creditCardPolicies": [
-                  {
-                    "vendorCode": "AX"
-                  },
-                  {
-                    "vendorCode": "VI"
-                  },
-                  {
-                    "vendorCode": "CA"
-                  }
-                ]
-              }
-            },
-            "paymentType": "prepay",
-            "refundable": {
-              "cancellationRefund": "NON_REFUNDABLE"
-            }
-          },
-          "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers/U227RW9IMJ",
-          "roomInformation": {
-            "description": "BOOK EARLY ADVANCE PURCHASE\nStandard Room When you arrive at the hotel we\nwill do our best to meet your room type",
-            "type": "*RH",
-            "typeEstimated": {
-              "category": "STANDARD_ROOM"
-            }
-          }
-        }
-      ],
-      "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=CPATH15B&adults=2&checkInDate=2026-01-01&checkOutDate=2026-01-08&currency=USD&roomQuantity=1"
-    },
-    {
-      "type": "hotel-offers",
-      "hotel": {
-        "type": "hotel",
         "hotelId": "HIATH4A1",
         "chainCode": "HI",
         "dupeId": "700030375",
@@ -123,23 +15,24 @@
       "available": true,
       "offers": [
         {
-          "id": "K49WQQEVX5",
+          "id": "ZWYCIPUC5F",
           "checkInDate": "2026-01-01",
           "checkOutDate": "2026-01-08",
           "rateCode": "005",
           "boardType": "ROOM_ONLY",
           "room": {
-            "type": "*RH",
             "typeEstimated": {
-              "category": "STANDARD_ROOM"
+              "category": "STANDARD_ROOM",
+              "beds": 1,
+              "bedType": "KING"
             },
             "description": {
-              "text": "BOOK EARLY ADVANCE PURCHASE\nStandard Room When you arrive at the hotel we\nwill do our best to meet your room type",
+              "text": "BOOK EARLY ADVANCE PURCHASE\n1 King Bed Standard No Smoking Extra Bed 22 sqm\nroom with added extra bed hairdryer iron",
               "lang": "EN"
             }
           },
           "guests": {
-            "adults": 2
+            "adults": 3
           },
           "price": {
             "currency": "EUR",
@@ -224,17 +117,18 @@
               "cancellationRefund": "NON_REFUNDABLE"
             }
           },
-          "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers/K49WQQEVX5",
+          "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers/ZWYCIPUC5F",
           "roomInformation": {
-            "description": "BOOK EARLY ADVANCE PURCHASE\nStandard Room When you arrive at the hotel we\nwill do our best to meet your room type",
-            "type": "*RH",
+            "description": "BOOK EARLY ADVANCE PURCHASE\n1 King Bed Standard No Smoking Extra Bed 22 sqm\nroom with added extra bed hairdryer iron",
             "typeEstimated": {
+              "bedType": "KING",
+              "beds": 1,
               "category": "STANDARD_ROOM"
             }
           }
         }
       ],
-      "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=HIATH4A1&adults=2&checkInDate=2026-01-01&checkOutDate=2026-01-08&currency=USD&roomQuantity=1"
+      "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=HIATH4A1&adults=3&checkInDate=2026-01-01&checkOutDate=2026-01-08&currency=USD&roomQuantity=1"
     },
     {
       "type": "hotel-offers",
@@ -251,28 +145,30 @@
       "available": true,
       "offers": [
         {
-          "id": "9TYCTL5ABU",
+          "id": "QV2LXS4AO8",
           "checkInDate": "2026-01-01",
           "checkOutDate": "2026-01-08",
           "rateCode": "57J",
           "boardType": "ROOM_ONLY",
           "room": {
-            "type": "*RH",
+            "type": "*1K",
             "typeEstimated": {
-              "category": "STANDARD_ROOM"
+              "category": "STANDARD_ROOM",
+              "beds": 2,
+              "bedType": "SINGLE"
             },
             "description": {
-              "text": "BEST FLEXIBLE RATE\nClassic Room When you arrive at the hotel we\nwill do our best to meet your room type",
+              "text": "BEST FLEXIBLE RATE\n2 Single Classic 35 Sqm Room Free high speed\nWiFi work area Tea Coffee making facilities",
               "lang": "EN"
             }
           },
           "guests": {
-            "adults": 2
+            "adults": 3
           },
           "price": {
             "currency": "EUR",
-            "base": "933.00",
-            "total": "1090.22",
+            "base": "1108.00",
+            "total": "1289.46",
             "taxes": [
               {
                 "code": "SERVICE_CHARGE",
@@ -282,45 +178,45 @@
               },
               {
                 "code": "OCCUPANCY_TAX",
-                "amount": "129.22",
+                "amount": "153.46",
                 "currency": "EUR",
                 "included": false
               }
             ],
             "variations": {
               "average": {
-                "base": "133.29"
+                "base": "158.29"
               },
               "changes": [
                 {
                   "startDate": "2026-01-01",
                   "endDate": "2026-01-02",
-                  "base": "144.00"
+                  "base": "169.00"
                 },
                 {
                   "startDate": "2026-01-02",
                   "endDate": "2026-01-04",
-                  "base": "114.00"
+                  "base": "139.00"
                 },
                 {
                   "startDate": "2026-01-04",
                   "endDate": "2026-01-05",
-                  "base": "144.00"
+                  "base": "169.00"
                 },
                 {
                   "startDate": "2026-01-05",
                   "endDate": "2026-01-06",
-                  "base": "139.00"
+                  "base": "164.00"
                 },
                 {
                   "startDate": "2026-01-06",
                   "endDate": "2026-01-07",
-                  "base": "149.00"
+                  "base": "174.00"
                 },
                 {
                   "startDate": "2026-01-07",
                   "endDate": "2026-01-08",
-                  "base": "129.00"
+                  "base": "154.00"
                 }
               ]
             }
@@ -360,17 +256,19 @@
               "cancellationRefund": "REFUNDABLE_UP_TO_DEADLINE"
             }
           },
-          "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers/9TYCTL5ABU",
+          "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers/QV2LXS4AO8",
           "roomInformation": {
-            "description": "BEST FLEXIBLE RATE\nClassic Room When you arrive at the hotel we\nwill do our best to meet your room type",
-            "type": "*RH",
+            "description": "BEST FLEXIBLE RATE\n2 Single Classic 35 Sqm Room Free high speed\nWiFi work area Tea Coffee making facilities",
+            "type": "*1K",
             "typeEstimated": {
+              "bedType": "SINGLE",
+              "beds": 2,
               "category": "STANDARD_ROOM"
             }
           }
         }
       ],
-      "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=ICATHICA&adults=2&checkInDate=2026-01-01&checkOutDate=2026-01-08&currency=USD&roomQuantity=1"
+      "self": "https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=ICATHICA&adults=3&checkInDate=2026-01-01&checkOutDate=2026-01-08&currency=USD&roomQuantity=1"
     }
   ],
   "dictionaries": {
@@ -384,51 +282,11 @@
   },
   "warnings": [
     {
-      "code": 3664,
-      "title": "NO ROOMS AVAILABLE AT REQUESTED PROPERTY",
-      "detail": "Provider Error - NO ROOMS AVAILABLE AT REQUESTED PROPERTY",
-      "source": {
-        "parameter": "hotelIds=BWATH597,HSATHAGS,OIATH18J,ONATHDIV,ONATHELP,ONATHGAT,ONATHHEL,ONATHKIM,ONATHMEL"
-      }
-    },
-    {
-      "code": 3494,
-      "title": "ROOM OR RATE NOT AVAILABLE OR RESTRICTED",
-      "detail": "Provider Error - ROOM OR RATE NOT AVAILABLE OR RESTRICTED",
-      "source": {
-        "parameter": "hotelIds=ONATHALK,ONATHCOC,ONATHEVI,ONATHGIK,ONATHKIN,ONATHMIC,ONATHSTA,ONATHTEL"
-      }
-    },
-    {
-      "code": 1351,
-      "title": "VERIFY CHAIN/REP CODE",
-      "detail": "Provider Error - VERIFY CHAIN/REP CODE",
-      "source": {
-        "parameter": "hotelIds=FGATHPHI"
-      }
-    },
-    {
       "code": 11226,
       "title": "ROOM OR RATE NOT FOUND",
       "detail": "Provider Error - ROOM OR RATE NOT FOUND",
       "source": {
-        "parameter": "hotelIds=SCATH079,SCATH736"
-      }
-    },
-    {
-      "code": 1257,
-      "title": "INVALID PROPERTY CODE",
-      "detail": "Provider Error - INVALID PROPERTY CODE",
-      "source": {
-        "parameter": "hotelIds=BWATH502,BWATH525,BWATH566,HSATHABV,HSATHACE,HSATHADT,HSATHAHW,HSATHAIG,HSATHAJJ,HSATHALW,HSATHANU,WVATH514,WVATHACR,WVATHTRK"
-      }
-    },
-    {
-      "code": 3203,
-      "title": "XX SYSTEM PROBLEM - RETRY LATER",
-      "detail": "Provider Error - XX SYSTEM PROBLEM - RETRY LATER",
-      "source": {
-        "parameter": "hotelIds=WIATH983"
+        "parameter": "hotelIds=SCATH736"
       }
     },
     {
@@ -436,7 +294,31 @@
       "title": "UNABLE TO PROCESS",
       "detail": "Provider Error - UNABLE TO PROCESS",
       "source": {
-        "parameter": "hotelIds=ACATH613,XNATH001"
+        "parameter": "hotelIds=ACATH655,ACATHF22"
+      }
+    },
+    {
+      "code": 1257,
+      "title": "INVALID PROPERTY CODE",
+      "detail": "Provider Error - INVALID PROPERTY CODE",
+      "source": {
+        "parameter": "hotelIds=BWATH502,BWATH525,BWATH566,BWATH710,DHATHALB,HSATHABU,HSATHACE,HSATHAFF,HSATHAHW,HSATHAJP,WVATH416,WVATHCHA,WVATHTRK"
+      }
+    },
+    {
+      "code": 3494,
+      "title": "ROOM OR RATE NOT AVAILABLE OR RESTRICTED",
+      "detail": "Provider Error - ROOM OR RATE NOT AVAILABLE OR RESTRICTED",
+      "source": {
+        "parameter": "hotelIds=ONATHAMA,ONATHAMR,ONATHCOC,ONATHPOL,ONATHTHE,SXATHKEF"
+      }
+    },
+    {
+      "code": 3664,
+      "title": "NO ROOMS AVAILABLE AT REQUESTED PROPERTY",
+      "detail": "Provider Error - NO ROOMS AVAILABLE AT REQUESTED PROPERTY",
+      "source": {
+        "parameter": "hotelIds=BWATH597,HSATHAGI,HSATHAGS,OIATH18J,ONATHELP,ONATHMEL,ONATHPLA,WVATH331,WVATH463"
       }
     }
   ]

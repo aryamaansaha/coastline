@@ -14,8 +14,8 @@
       "nonHomogeneous": false,
       "oneWay": false,
       "isUpsellOffer": false,
-      "lastTicketingDate": "2025-11-29",
-      "lastTicketingDateTime": "2025-11-29",
+      "lastTicketingDate": "2025-12-01",
+      "lastTicketingDateTime": "2025-12-01",
       "numberOfBookableSeats": 9,
       "itineraries": [
         {
@@ -901,8 +901,8 @@
       "nonHomogeneous": false,
       "oneWay": false,
       "isUpsellOffer": false,
-      "lastTicketingDate": "2025-11-30",
-      "lastTicketingDateTime": "2025-11-30",
+      "lastTicketingDate": "2025-12-02",
+      "lastTicketingDateTime": "2025-12-02",
       "numberOfBookableSeats": 9,
       "itineraries": [
         {

@@ -4,6 +4,11 @@
 # below is the link to their github with a lot of info and some sample calls
 #https://github.com/amadeus4dev/amadeus-python?tab=readme-ov-file
 
+# Important
+# hotel seach API call params:
+#https://developers.amadeus.com/self-service/category/hotels/api-doc/hotel-search/api-reference
+# flight seach API call params:
+
 
 from amadeus import Client, ResponseError
 
@@ -66,12 +71,13 @@ try:
 
     hotel_offers = amadeus.shopping.hotel_offers_search.get(
             hotelIds=','.join(hotel_ids),  # Can pass multiple IDs separated by comma
-            adults=2,
+            adults=3,
             checkInDate='2026-01-01',
             checkOutDate='2026-01-08',
             roomQuantity=1,
             currency='USD',
-            #bestRateOnly='true'    # Optional: only show best rate per hotel
+            maxPrice=1000,
+            bestRateOnly='true'    # Optional: only show best rate per hotel
         )
 
     with open('test_amadeus_hotel_results.json', 'w') as f:
