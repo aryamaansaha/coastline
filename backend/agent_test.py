@@ -234,12 +234,12 @@ def main():
     print("  3. Agent uses GPT-4 to call search_flights and search_hotels")
     print("  4. Agent generates a travel itinerary")
     
-    # Test trip: Madrid to Athens
+    # Test trip: New York to Chennai
     result = asyncio.run(run_travel_agent(
-        origin="NYC",           # Madrid
-        destination="LON",      # Athens  
-        departure_date="2026-01-01",
-        return_date="2026-01-08",
+        origin="NYC",           # New York
+        destination="MAA",      # Chennai  
+        departure_date="2026-02-01",
+        return_date="2026-02-04",
         adults=2
     ))
     
