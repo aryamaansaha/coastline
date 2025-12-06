@@ -28,21 +28,31 @@ class Preferences(BaseModel):
     @field_validator('start_date')
     @classmethod
     def validate_start_date(cls, v):
-        # Handle both timezone-aware and naive datetimes
-        now = datetime.now(timezone.utc)
-        
-        # If v is naive, assume UTC
+        # Normalize to timezone-aware (UTC)
         if v.tzinfo is None:
             v_aware = v.replace(tzinfo=timezone.utc)
         else:
             v_aware = v
         
+        # Validate it's in the future
+        now = datetime.now(timezone.utc)
         if v_aware < now:
             raise ValueError('Start date must be in the future')
+        
+        # Return normalized value to ensure consistency
+        return v_aware
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_end_date(cls, v):
+        # Normalize to timezone-aware (UTC) for consistency with start_date
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
         return v
     
     @model_validator(mode='after')
     def validate_date_range(self):
+        # Both dates are now guaranteed to be timezone-aware
         if self.start_date >= self.end_date:
             raise ValueError('End date must be after start date')
         return self
@@ -79,6 +89,7 @@ class Activity(ActivityLLMCreate):
 class DayLLMCreate(BaseModel):
     day_number: int
     theme: str
+    city: str  # Which city this day takes place in (for multi-city trips)
     activities: list[ActivityLLMCreate]
 
 # Final Day object; part of the Itinerary object we want to persist
