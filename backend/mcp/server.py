@@ -1,17 +1,18 @@
-"""
-Coastline MCP Server - Amadeus API Integration
-===============================================
-This MCP server provides tools for searching flights and hotels using the Amadeus API.
-It can be used by AI agents to find the cheapest travel options.
-
-Run with: python -m mcp.server
-Or: mcp run mcp/server.py
-"""
-
 from mcp.server.fastmcp import FastMCP
 from amadeus import Client, ResponseError
 import os
 from dotenv import load_dotenv
+from typing import List, Dict, Any
+import sys
+import logging
+
+# Setup logging to stderr
+logging.basicConfig(
+    level=logging.INFO,
+    format='[MCP Server] %(levelname)s: %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -19,434 +20,278 @@ load_dotenv()
 mcp = FastMCP(name="coastline-travel")
 
 # Initialize Amadeus client
-# Uses environment variables or falls back to test credentials
+amadeus_client_id = os.getenv("AMADEUS_CLIENT_ID")
+amadeus_client_secret = os.getenv("AMADEUS_CLIENT_SECRET")
+
+if not amadeus_client_id or not amadeus_client_secret:
+    logger.error("AMADEUS credentials not found in environment variables!")
+else:
+    logger.info("AMADEUS credentials loaded successfully")
+
 amadeus = Client(
-    client_id=os.getenv("AMADEUS_CLIENT_ID"),
-    client_secret=os.getenv("AMADEUS_CLIENT_SECRET")
+    client_id=amadeus_client_id,
+    client_secret=amadeus_client_secret
 )
 
-
 # ============================================================================
-# FLIGHT SEARCH TOOL
+# HELPER: BUDGET CALCULATOR
 # ============================================================================
 
 @mcp.tool()
-def search_flights(
-    origin: str,
-    destination: str,
-    departure_date: str,
-    return_date: str,
-    adults: int
-) -> dict:
+def calculate_itinerary_cost(line_items: List[Dict[str, Any]]) -> dict:
     """
-    Search for round-trip flights using Amadeus API and return the cheapest options.
+    Calculate the total cost of a trip based on a list of items.
+    ALWAYS use this tool to sum up costs. Do not do math yourself.
     
     Args:
-        origin: IATA airport/city code for departure (e.g., 'JFK', 'LAX', 'MAD')
-        destination: IATA airport/city code for arrival (e.g., 'ATH', 'CDG', 'LHR')
-        departure_date: Departure date in YYYY-MM-DD format (e.g., '2026-01-01')
-        return_date: Return date in YYYY-MM-DD format (e.g., '2026-01-08')
-        adults: Number of adult passengers (1-9)
+        line_items: List of dicts, e.g., [{"category": "flight", "amount": 500.0, "description": "..."}, ...]
+    """
+    total = 0.0
+    breakdown = {}
+    
+    for item in line_items:
+        try:
+            amount = float(item.get("amount", 0))
+            category = item.get("category", "misc")
+            total += amount
+            
+            if category not in breakdown:
+                breakdown[category] = 0.0
+            breakdown[category] += amount
+        except (ValueError, TypeError):
+            continue
+            
+    return {
+        "total_cost": round(total, 2),
+        "currency": "USD",
+        "category_breakdown": {k: round(v, 2) for k, v in breakdown.items()},
+        "item_count": len(line_items)
+    }
+
+# ============================================================================
+# FLIGHT SEARCH TOOL (SLIM + ROUND-TRIP)
+# ============================================================================
+
+@mcp.tool()
+def search_flights(origin: str, destination: str, departure_date: str, return_date: str = None) -> dict:
+    """
+    Search for flights. Supports both one-way and round-trip.
+    Returns simplified data for decision making.
+    
+    Args:
+        origin: 3-letter IATA airport code (e.g., "JFK", "NYC")
+        destination: 3-letter IATA airport code (e.g., "LON", "LHR")
+        departure_date: Departure date in YYYY-MM-DD format (must be in the future)
+        return_date: (Optional) Return date for round-trip in YYYY-MM-DD format
     
     Returns:
-        Dictionary containing:
-        - success: Boolean indicating if search was successful
-        - flights: List of flight offers sorted by price (cheapest first)
-        - cheapest_flight: The single cheapest flight option with full details
-        - total_results: Number of flights found
-        - error: Error message if search failed
+        Dict with 'flights' list or 'error' message
     """
-    # Fixed parameters (not exposed to agent)
-    currency = "USD"
-    max_results = 10
+    trip_type = "round-trip" if return_date else "one-way"
+    logger.info(f"Searching {trip_type} flights: {origin} -> {destination} departing {departure_date}")
     
     try:
-        # Build request parameters
         params = {
             "originLocationCode": origin.upper(),
             "destinationLocationCode": destination.upper(),
             "departureDate": departure_date,
-            "returnDate": return_date,
-            "adults": adults,
-            "currencyCode": currency,
-            "max": max_results
+            "adults": 1,
+            "currencyCode": "USD",
+            "max": 10
         }
         
-        # Make API request
+        # Add return date if round-trip
+        if return_date:
+            params["returnDate"] = return_date
+        
         response = amadeus.shopping.flight_offers_search.get(**params)
         
         if not response.data:
-            return {
-                "success": True,
-                "flights": [],
-                "cheapest_flight": None,
-                "total_results": 0,
-                "message": "No flights found for the given criteria"
-            }
+            logger.warning("No flights found in response")
+            return {"flights": [], "message": "No flights found."}
         
-        # Parse and simplify flight data
-        flights = []
+        slim_flights = []
+        dictionaries = response.result.get("dictionaries", {})
+        carriers = dictionaries.get("carriers", {})
+
         for offer in response.data:
-            flight_info = _parse_flight_offer(offer, response.result.get("dictionaries", {}))
-            flights.append(flight_info)
-        
-        # Sort by price (already sorted by API, but ensure it)
-        flights.sort(key=lambda x: float(x["total_price"]))
-        
-        return {
-            "success": True,
-            "flights": flights,
-            "cheapest_flight": flights[0] if flights else None,
-            "total_results": len(flights),
-            "search_params": {
-                "origin": origin.upper(),
-                "destination": destination.upper(),
-                "departure_date": departure_date,
-                "return_date": return_date,
-                "adults": adults
+            # Extract only decision-critical info
+            price = offer.get("price", {}).get("grandTotal", offer.get("price", {}).get("total"))
+            currency = offer.get("price", {}).get("currency", "USD")
+            validating_airline = offer.get("validatingAirlineCodes", [""])[0]
+            airline_name = carriers.get(validating_airline, validating_airline)
+            
+            # Get itinerary details (outbound and return if round-trip)
+            itineraries = offer.get("itineraries", [])
+            if not itineraries: continue
+            
+            # Outbound (first itinerary)
+            outbound = itineraries[0]
+            outbound_first_seg = outbound.get("segments", [])[0] if outbound.get("segments") else {}
+            outbound_last_seg = outbound.get("segments", [])[-1] if outbound.get("segments") else {}
+            
+            flight_data = {
+                "id": offer.get("id"),
+                "airline": airline_name,
+                "price": float(price),
+                "currency": currency,
+                "outbound": {
+                    "departure": outbound_first_seg.get("departure", {}).get("at"),
+                    "arrival": outbound_last_seg.get("arrival", {}).get("at"),
+                    "duration": outbound.get("duration")
+                }
             }
-        }
-        
-    except ResponseError as error:
-        return {
-            "success": False,
-            "flights": [],
-            "cheapest_flight": None,
-            "total_results": 0,
-            "error": str(error)
-        }
+            
+            # Add return leg if round-trip
+            if len(itineraries) > 1:
+                return_leg = itineraries[1]
+                return_first_seg = return_leg.get("segments", [])[0] if return_leg.get("segments") else {}
+                return_last_seg = return_leg.get("segments", [])[-1] if return_leg.get("segments") else {}
+                
+                flight_data["return"] = {
+                    "departure": return_first_seg.get("departure", {}).get("at"),
+                    "arrival": return_last_seg.get("arrival", {}).get("at"),
+                    "duration": return_leg.get("duration")
+                }
+            
+            slim_flights.append(flight_data)
+            
+        # Sort by price
+        slim_flights.sort(key=lambda x: x["price"])
+        logger.info(f"Found {len(slim_flights)} flights, returning top 5")
+        return {"flights": slim_flights[:5]}
+
+    except ResponseError as e:
+        logger.error(f"Amadeus API Error: {e}")
+        return {"error": f"API Error: {str(e)}"}
     except Exception as e:
-        return {
-            "success": False,
-            "flights": [],
-            "cheapest_flight": None,
-            "total_results": 0,
-            "error": f"Unexpected error: {str(e)}"
-        }
-
-
-def _parse_flight_offer(offer: dict, dictionaries: dict) -> dict:
-    """Parse a flight offer into a simplified structure."""
-    
-    # Get carrier names from dictionaries
-    carriers = dictionaries.get("carriers", {})
-    aircraft = dictionaries.get("aircraft", {})
-    
-    # Parse itineraries (outbound and optionally return)
-    itineraries = []
-    for itinerary in offer.get("itineraries", []):
-        segments = []
-        for segment in itinerary.get("segments", []):
-            carrier_code = segment.get("carrierCode", "")
-            segments.append({
-                "departure_airport": segment.get("departure", {}).get("iataCode", ""),
-                "departure_terminal": segment.get("departure", {}).get("terminal", ""),
-                "departure_time": segment.get("departure", {}).get("at", ""),
-                "arrival_airport": segment.get("arrival", {}).get("iataCode", ""),
-                "arrival_terminal": segment.get("arrival", {}).get("terminal", ""),
-                "arrival_time": segment.get("arrival", {}).get("at", ""),
-                "carrier_code": carrier_code,
-                "carrier_name": carriers.get(carrier_code, carrier_code),
-                "flight_number": f"{carrier_code}{segment.get('number', '')}",
-                "aircraft": aircraft.get(segment.get("aircraft", {}).get("code", ""), ""),
-                "duration": segment.get("duration", ""),
-                "stops": segment.get("numberOfStops", 0)
-            })
-        
-        itineraries.append({
-            "duration": itinerary.get("duration", ""),
-            "segments": segments
-        })
-    
-    # Parse price
-    price = offer.get("price", {})
-    
-    # Get cabin class from first traveler's first segment
-    cabin_class = "ECONOMY"
-    traveler_pricings = offer.get("travelerPricings", [])
-    if traveler_pricings:
-        fare_details = traveler_pricings[0].get("fareDetailsBySegment", [])
-        if fare_details:
-            cabin_class = fare_details[0].get("cabin", "ECONOMY")
-    
-    return {
-        "offer_id": offer.get("id", ""),
-        "total_price": price.get("grandTotal", price.get("total", "0")),
-        "base_price": price.get("base", "0"),
-        "currency": price.get("currency", "USD"),
-        "cabin_class": cabin_class,
-        "itineraries": itineraries,
-        "bookable_seats": offer.get("numberOfBookableSeats", 0),
-        "last_ticketing_date": offer.get("lastTicketingDate", ""),
-        "validating_airline": offer.get("validatingAirlineCodes", [""])[0],
-        "is_one_way": offer.get("oneWay", False)
-    }
-
+        logger.error(f"Unexpected error in search_flights: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"error": str(e)}
 
 # ============================================================================
-# HOTEL SEARCH TOOL
+# HOTEL SEARCH TOOL (SLIM + DATES + TOTAL STAY PRICE)
 # ============================================================================
 
 @mcp.tool()
-def search_hotels(
-    city_code: str,
-    check_in_date: str,
-    check_out_date: str,
-    adults: int,
-    room_quantity: int = 1
-) -> dict:
+def search_hotels(city_code: str, check_in_date: str, check_out_date: str) -> dict:
     """
-    Search for hotels using Amadeus API and return the cheapest options.
-    
-    This tool first fetches hotels in the city, then gets pricing for up to 20 hotels.
+    Search for hotels with check-in/check-out dates.
+    Returns total stay price (not per-night).
     
     Args:
-        city_code: IATA city code (e.g., 'ATH' for Athens, 'PAR' for Paris, 'NYC' for New York)
-        check_in_date: Check-in date in YYYY-MM-DD format (e.g., '2026-01-01')
-        check_out_date: Check-out date in YYYY-MM-DD format (e.g., '2026-01-08')
-        adults: Number of adult guests (1-9)
-        room_quantity: Number of rooms needed (default: 1)
+        city_code: 3-letter IATA city code (e.g., "LON", "PAR", "NYC")
+        check_in_date: Check-in date in YYYY-MM-DD format
+        check_out_date: Check-out date in YYYY-MM-DD format
     
     Returns:
-        Dictionary containing:
-        - success: Boolean indicating if search was successful
-        - hotels: List of hotel offers sorted by price (cheapest first)
-        - cheapest_hotel: The single cheapest hotel option with full details
-        - total_results: Number of hotels with availability
-        - error: Error message if search failed
+        Dict with 'hotels' list or 'error' message
     """
-    # Fixed parameters (not exposed to agent)
-    currency = "USD"
-    best_rate_only = True
+    logger.info(f"Searching hotels in: {city_code} from {check_in_date} to {check_out_date}")
+    
+    # Calculate nights from actual dates
+    from datetime import datetime
+    check_in_dt = datetime.strptime(check_in_date, "%Y-%m-%d")
+    check_out_dt = datetime.strptime(check_out_date, "%Y-%m-%d")
+    nights = (check_out_dt - check_in_dt).days
     
     try:
-        # Step 1: Get list of hotels in the city
-        print(f"DEBUG: Searching hotels in city: {city_code.upper()}")
+        # 1. Get hotels in city
+        hotels_resp = amadeus.reference_data.locations.hotels.by_city.get(
+            cityCode=city_code.upper()
+        )
         
-        try:
-            hotels_response = amadeus.reference_data.locations.hotels.by_city.get(
-                cityCode=city_code.upper()
-            )
-        except ResponseError as e:
-            return {
-                "success": False,
-                "hotels": [],
-                "cheapest_hotel": None,
-                "total_results": 0,
-                "error": f"Failed to get hotel list for city '{city_code}': {str(e)}"
-            }
-        
-        if not hotels_response.data:
-            return {
-                "success": True,
-                "hotels": [],
-                "cheapest_hotel": None,
-                "total_results": 0,
-                "message": f"No hotels found in city: {city_code}"
-            }
-        
-        # Get first 20 hotel IDs (Amadeus test API has limits)
-        # Using fewer hotels to avoid 400 errors
-        hotel_ids = [hotel["hotelId"] for hotel in hotels_response.data[:20]]
-        print(f"DEBUG: Found {len(hotels_response.data)} hotels, using first {len(hotel_ids)}")
-        
-        # Step 2: Get hotel offers with pricing
-        # Try in smaller batches if needed
-        all_hotels = []
-        batch_size = 10  # Smaller batches are more reliable
-        
-        for i in range(0, len(hotel_ids), batch_size):
-            batch_ids = hotel_ids[i:i + batch_size]
+        if not hotels_resp.data:
+            logger.warning("No hotels found in response")
+            return {"hotels": [], "message": "No hotels found."}
             
-            try:
-                params = {
-                    "hotelIds": ",".join(batch_ids),
-                    "adults": adults,
-                    "checkInDate": check_in_date,
-                    "checkOutDate": check_out_date,
-                    "roomQuantity": room_quantity,
-                    "currency": currency
-                }
+        # Limit to 5 hotels for pricing to save time/tokens
+        hotel_ids = [h["hotelId"] for h in hotels_resp.data[:5]]
+        logger.info(f"Found {len(hotel_ids)} hotels, fetching offers...")
+        
+        # 2. Get offers with dates
+        offers_resp = amadeus.shopping.hotel_offers_search.get(
+            hotelIds=",".join(hotel_ids),
+            adults=1,
+            checkInDate=check_in_date,
+            checkOutDate=check_out_date,
+            currency="USD"
+        )
+        
+        slim_hotels = []
+        if offers_resp.data:
+            for offer in offers_resp.data:
+                if not offer.get("available", False):
+                    continue
+                    
+                hotel = offer.get("hotel", {})
+                offers_list = offer.get("offers", [])
                 
-                if best_rate_only:
-                    params["bestRateOnly"] = "true"
+                # Filter out known test/sandbox properties from Amadeus
+                hotel_name = (hotel.get("name") or "").strip()
+                if hotel_name.lower() == "test property":
+                    logger.info("Skipping test/sandbox hotel property")
+                    continue
                 
-                print(f"DEBUG: Querying batch {i//batch_size + 1} with {len(batch_ids)} hotels")
-                offers_response = amadeus.shopping.hotel_offers_search.get(**params)
+                if not offers_list:
+                    continue
                 
-                if offers_response.data:
-                    for hotel_offer in offers_response.data:
-                        if hotel_offer.get("available", False):
-                            hotel_info = _parse_hotel_offer(hotel_offer)
-                            if hotel_info:
-                                all_hotels.append(hotel_info)
-                                
-            except ResponseError as batch_error:
-                # Log but continue with other batches
-                print(f"DEBUG: Batch {i//batch_size + 1} failed: {batch_error}")
-                continue
+                # Get first (best) offer
+                best_offer = offers_list[0]
+                price = best_offer.get("price", {})
+                
+                # Calculate total price
+                total = float(price.get("total", price.get("base", "0")))
+                
+                # Calculate per-night price (simple division is most accurate)
+                price_per_night = total / nights if nights > 0 else total
+                
+                slim_hotels.append({
+                    "name": hotel_name,
+                    "hotel_id": hotel.get("hotelId"),
+                    "total_price": round(total, 2),  # Total for entire stay
+                    "price_per_night": round(price_per_night, 2),  # Accurate per-night
+                    "currency": price.get("currency", "USD"),
+                    "rating": hotel.get("rating", "N/A"),
+                    "nights": nights  # Include for transparency
+                })
         
-        if not all_hotels:
-            return {
-                "success": True,
-                "hotels": [],
-                "cheapest_hotel": None,
-                "total_results": 0,
-                "hotels_searched": len(hotel_ids),
-                "message": "No available rooms found for the given dates. The Amadeus test API has limited availability."
-            }
-        
-        # Sort by price (cheapest first)
-        all_hotels.sort(key=lambda x: float(x["total_price"]))
-        
-        return {
-            "success": True,
-            "hotels": all_hotels,
-            "cheapest_hotel": all_hotels[0] if all_hotels else None,
-            "total_results": len(all_hotels),
-            "hotels_searched": len(hotel_ids),
-            "search_params": {
-                "city_code": city_code.upper(),
-                "check_in_date": check_in_date,
-                "check_out_date": check_out_date,
-                "adults": adults,
-                "room_quantity": room_quantity
-            }
-        }
-        
-    except ResponseError as error:
-        return {
-            "success": False,
-            "hotels": [],
-            "cheapest_hotel": None,
-            "total_results": 0,
-            "error": f"Amadeus API error: {str(error)}"
-        }
+        slim_hotels.sort(key=lambda x: x["total_price"])
+        logger.info(f"Returning {len(slim_hotels)} hotels")
+        return {"hotels": slim_hotels}
+
+    except ResponseError as e:
+        logger.error(f"Amadeus API Error in hotels: {e}")
+        return {"error": f"API Error: {str(e)}"}
     except Exception as e:
-        return {
-            "success": False,
-            "hotels": [],
-            "cheapest_hotel": None,
-            "total_results": 0,
-            "error": f"Unexpected error: {str(e)}"
-        }
-
-
-def _parse_hotel_offer(hotel_data: dict) -> dict | None:
-    """Parse a hotel offer into a simplified structure."""
-    
-    hotel = hotel_data.get("hotel", {})
-    offers = hotel_data.get("offers", [])
-    
-    if not offers:
-        return None
-    
-    # Get the first (best) offer
-    offer = offers[0]
-    price = offer.get("price", {})
-    room = offer.get("room", {})
-    room_type = room.get("typeEstimated", {})
-    policies = offer.get("policies", {})
-    
-    # Calculate price per night
-    total = float(price.get("total", price.get("base", "0")))
-    
-    # Get number of nights from variations if available
-    variations = price.get("variations", {})
-    changes = variations.get("changes", [])
-    nights = len(changes) if changes else 1
-    price_per_night = total / nights if nights > 0 else total
-    
-    return {
-        "hotel_id": hotel.get("hotelId", ""),
-        "hotel_name": hotel.get("name", "Unknown Hotel"),
-        "chain_code": hotel.get("chainCode", ""),
-        "city_code": hotel.get("cityCode", ""),
-        "latitude": hotel.get("latitude", 0),
-        "longitude": hotel.get("longitude", 0),
-        "offer_id": offer.get("id", ""),
-        "check_in_date": offer.get("checkInDate", ""),
-        "check_out_date": offer.get("checkOutDate", ""),
-        "total_price": str(total),
-        "base_price": price.get("base", "0"),
-        "currency": price.get("currency", "USD"),
-        "price_per_night": f"{price_per_night:.2f}",
-        "room_type": room_type.get("category", "STANDARD_ROOM"),
-        "bed_type": room_type.get("bedType", ""),
-        "beds": room_type.get("beds", 1),
-        "room_description": room.get("description", {}).get("text", "").replace("\n", " "),
-        "board_type": offer.get("boardType", "ROOM_ONLY"),
-        "is_refundable": policies.get("refundable", {}).get("cancellationRefund", "") != "NON_REFUNDABLE",
-        "payment_type": policies.get("paymentType", ""),
-        "adults": offer.get("guests", {}).get("adults", 1)
-    }
-
+        logger.error(f"Unexpected error in search_hotels: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"error": str(e)}
 
 # ============================================================================
-# UTILITY TOOLS
+# UTILITY
 # ============================================================================
 
 @mcp.tool()
 def get_airport_code(city_name: str) -> dict:
-    """
-    Look up IATA airport/city codes for a given city name.
-    
-    Args:
-        city_name: Name of the city to search for (e.g., 'Paris', 'New York', 'Athens')
-    
-    Returns:
-        Dictionary with matching airport/city codes and names
-    """
+    """Look up IATA codes for a city."""
     try:
         from amadeus import Location
-        
         response = amadeus.reference_data.locations.get(
-            keyword=city_name,
-            subType=Location.CITY
+            keyword=city_name, subType=Location.CITY
         )
+        if not response.data: return {"error": "City not found"}
         
-        if not response.data:
-            # Try airport search
-            response = amadeus.reference_data.locations.get(
-                keyword=city_name,
-                subType=Location.AIRPORT
-            )
-        
-        if not response.data:
-            return {
-                "success": False,
-                "locations": [],
-                "message": f"No locations found for: {city_name}"
-            }
-        
-        locations = []
-        for loc in response.data[:5]:  # Return top 5 matches
-            locations.append({
-                "iata_code": loc.get("iataCode", ""),
-                "name": loc.get("name", ""),
-                "city_name": loc.get("address", {}).get("cityName", ""),
-                "country_code": loc.get("address", {}).get("countryCode", ""),
-                "type": loc.get("subType", "")
-            })
-        
+        loc = response.data[0]
         return {
-            "success": True,
-            "locations": locations,
-            "recommended": locations[0]["iata_code"] if locations else None
+            "name": loc.get("name"),
+            "iata_code": loc.get("iataCode")
         }
-        
     except Exception as e:
-        return {
-            "success": False,
-            "locations": [],
-            "error": str(e)
-        }
-
-
-# ============================================================================
-# SERVER ENTRY POINT
-# ============================================================================
+        return {"error": str(e)}
 
 if __name__ == "__main__":
-    # Run the MCP server
     mcp.run()
+
