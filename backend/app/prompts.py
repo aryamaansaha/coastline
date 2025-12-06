@@ -215,3 +215,130 @@ When you've completed planning, respond with ONLY a JSON object (no additional t
 - Do not use "food" type. Use "activity" type instead.
 - Include estimated_cost for all items (use tool results)
 """
+
+
+# ============================================================================
+# AGENT FEEDBACK MESSAGE TEMPLATES
+# ============================================================================
+
+def format_preferences_request(preferences: dict) -> str:
+    """
+    Format the initial user preferences message for the agent.
+    
+    Args:
+        preferences: Dictionary with destinations, dates, budget, origin
+        
+    Returns:
+        Formatted message string
+    """
+    import json
+    return f"""
+USER PREFERENCES (Structured Data):
+```json
+{json.dumps(preferences, indent=2)}
+```
+
+Please create a detailed itinerary for this trip.
+"""
+
+
+def format_budget_alert(total_cost: float, budget_limit: float) -> str:
+    """
+    Generate budget alert message when LLM's plan exceeds budget.
+    
+    Args:
+        total_cost: Total cost from LLM's previous plan
+        budget_limit: User's budget constraint
+        
+    Returns:
+        Formatted alert message
+    """
+    over_by = total_cost - budget_limit
+    return f"""
+
+⚠️ BUDGET ALERT: Your previous plan cost ${total_cost:.2f} but the budget is ${budget_limit:.2f}.
+You are ${over_by:.2f} over budget.
+
+Please revise the plan to fit within budget by:
+- Choosing cheaper flights/hotels from the tool results
+- Reducing paid activities
+- Shortening the trip duration
+- Or suggesting a budget increase to the user
+"""
+
+
+def format_schema_validation_error(error_details: list) -> str:
+    """
+    Format Pydantic validation errors for LLM feedback.
+    
+    Args:
+        error_details: List of formatted error strings
+        
+    Returns:
+        Formatted error message with structure guidance
+    """
+    error_msg = "\n".join(error_details)
+    
+    return f"""
+❌ Your itinerary JSON has structural errors that need to be fixed:
+
+{error_msg}
+
+Please provide a corrected JSON itinerary following this exact structure:
+{{
+  "trip_title": "string",
+  "days": [
+    {{
+      "day_number": number,
+      "theme": "string",
+      "city": "string",
+      "activities": [
+        {{
+          "type": "flight" | "hotel" | "activity",
+          "time_slot": "HH:MM AM/PM",
+          "title": "string",
+          "description": "string",
+          "activity_suggestion": "string",
+          "location": {{
+            "name": "string",
+            "address": "string"
+          }},
+          "estimated_cost": number,
+          "price_suggestion": "string",
+          "currency": "string"
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
+
+def format_json_parse_error(error: str) -> str:
+    """
+    Format JSON parsing error message for LLM.
+    
+    Args:
+        error: Exception message from JSON parsing
+        
+    Returns:
+        Formatted error message
+    """
+    return f"""
+❌ Could not parse your response as valid JSON.
+
+Error: {error}
+
+Please respond with ONLY a valid JSON object in this format:
+{{
+  "trip_title": "...",
+  "days": [...]
+}}
+
+Do not include any explanatory text before or after the JSON.
+"""
+
+
+# Static feedback messages
+AGENT_REQUEST_BUDGET_REVISION = "Please revise the plan to fit within budget."
+AGENT_REQUEST_VALID_JSON = "Please provide a valid itinerary in JSON format."

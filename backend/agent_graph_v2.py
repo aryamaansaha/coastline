@@ -26,7 +26,14 @@ from langgraph.checkpoint.memory import MemorySaver
 
 # Import prompts from centralized location
 sys.path.insert(0, str(Path(__file__).parent / "app"))
-from app.prompts import AGENT_PLANNER_SYSTEM_PROMPT
+from app.prompts import (
+    AGENT_PLANNER_SYSTEM_PROMPT,
+    format_preferences_request,
+    format_budget_alert,
+    format_schema_validation_error,
+    format_json_parse_error,
+    AGENT_REQUEST_VALID_JSON
+)
 
 
 # ============================================================================
@@ -69,27 +76,12 @@ def create_planner_node(llm_with_tools, debug=False):
         sys_content = AGENT_PLANNER_SYSTEM_PROMPT.format(current_date=current_date)
         
         # Add preferences as structured context
-        preferences_msg = f"""
-USER PREFERENCES (Structured Data):
-```json
-{json.dumps(preferences, indent=2)}
-```
-
-Please create a detailed itinerary for this trip.
-"""
+        preferences_msg = format_preferences_request(preferences)
         
         # If this is a revision, add context about budget issue
         if state.get("budget_status") == "over":
             total_cost = state.get("total_cost", 0)
-            preferences_msg += f"""
-
-⚠️ BUDGET ALERT: Your previous plan cost ${total_cost:.2f} but the budget is ${budget:.2f}.
-Please revise the plan to fit within budget by:
-- Choosing cheaper flights/hotels
-- Reducing activities
-- Shortening the trip
-- Or suggesting a budget increase to the user
-"""
+            preferences_msg += format_budget_alert(total_cost, budget)
         
         # Build message history
         msgs = [
@@ -197,48 +189,16 @@ def create_auditor_node(debug=False):
                 error_details = []
                 for err in errors:
                     location = " → ".join(str(loc) for loc in err['loc'])
-                    error_details.append(f"  • {location}: {err['msg']}")
-                
-                error_msg = "\n".join(error_details)
+                    error_details.append(f"{location}: {err['msg']}")
                 
                 print(f"\n❌ AUDITOR: Schema validation failed")
-                print(f"   Errors:\n{error_msg}")
+                print(f"   Errors:\n" + "\n   ".join(error_details))
+                
+                feedback_msg = format_schema_validation_error(error_details)
                 
                 return {
                     "budget_status": "unknown",
-                    "messages": [HumanMessage(content=f"""
-❌ Your itinerary JSON has structural errors that need to be fixed:
-
-{error_msg}
-
-Please provide a corrected JSON itinerary following this exact structure:
-{{
-  "trip_title": "string",
-  "days": [
-    {{
-      "day_number": number,
-      "theme": "string",
-      "city": "string",
-      "activities": [
-        {{
-          "type": "flight" | "hotel" | "activity",
-          "time_slot": "HH:MM AM/PM",
-          "title": "string",
-          "description": "string",
-          "activity_suggestion": "string",
-          "location": {{
-            "name": "string",
-            "address": "string"
-          }},
-          "estimated_cost": number,
-          "price_suggestion": "string",
-          "currency": "string"
-        }}
-      ]
-    }}
-  ]
-}}
-""")]
+                    "messages": [HumanMessage(content=feedback_msg)]
                 }
             
             # Use the raw dict for further processing (not the validated object)
@@ -312,24 +272,14 @@ Please provide a corrected JSON itinerary following this exact structure:
             if debug:
                 print(f"   Content preview: {content[:500]}...")
             
+            feedback_msg = format_json_parse_error(str(e))
+            
             return {
                 "current_itinerary": None,
                 "total_cost": None,
                 "cost_breakdown": None,
                 "budget_status": "unknown",
-                "messages": [HumanMessage(content=f"""
-❌ Could not parse your response as valid JSON.
-
-Error: {str(e)}
-
-Please respond with ONLY a valid JSON object in this format:
-{{
-  "trip_title": "...",
-  "days": [...]
-}}
-
-Do not include any explanatory text before or after the JSON.
-""")]
+                "messages": [HumanMessage(content=feedback_msg)]
             }
     
     return auditor_node
@@ -365,7 +315,7 @@ def human_review_node(state: PlanState) -> dict:
         print("\n❌ HUMAN REVIEW: Invalid itinerary format - Requesting correction")
         return {
             "is_approved": False,
-            "messages": [HumanMessage(content="Please provide a valid itinerary in JSON format.")]
+            "messages": [HumanMessage(content=AGENT_REQUEST_VALID_JSON)]
         }
 
 
