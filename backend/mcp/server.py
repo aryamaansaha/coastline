@@ -103,9 +103,7 @@ def search_flights(
                 "destination": destination.upper(),
                 "departure_date": departure_date,
                 "return_date": return_date,
-                "adults": adults,
-                "travel_class": travel_class,
-                "non_stop": non_stop
+                "adults": adults
             }
         }
         

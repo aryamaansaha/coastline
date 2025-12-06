@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import localizer, trip, user, discovery
+from app.routers import localizer, trip, user, discovery, budget
 from app.database import initialize_indexes
 import os
 
@@ -24,6 +24,7 @@ app.include_router(trip.router, tags=["trips"])
 app.include_router(discovery.router, tags=["discovery"])
 app.include_router(localizer.router, tags=["localizer"])
 app.include_router(user.router, tags=["users"])
+app.include_router(budget.router, tags=["budget"])
 
 @app.on_event("startup")
 def startup_event():
