@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Literal
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Preferences we obtain from the initial user input 
 class Preferences(BaseModel):
@@ -28,7 +28,16 @@ class Preferences(BaseModel):
     @field_validator('start_date')
     @classmethod
     def validate_start_date(cls, v):
-        if v < datetime.now():
+        # Handle both timezone-aware and naive datetimes
+        now = datetime.now(timezone.utc)
+        
+        # If v is naive, assume UTC
+        if v.tzinfo is None:
+            v_aware = v.replace(tzinfo=timezone.utc)
+        else:
+            v_aware = v
+        
+        if v_aware < now:
             raise ValueError('Start date must be in the future')
         return v
     
