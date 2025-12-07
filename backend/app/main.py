@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import trip, user, discovery
+from app.routers import trip, user, discovery, session
 from app.database import initialize_indexes
 import os
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(trip.router, tags=["trips"])
 app.include_router(discovery.router, tags=["discovery"])
 app.include_router(user.router, tags=["users"])
+app.include_router(session.router, tags=["sessions"])
 
 @app.on_event("startup")
 def startup_event():

@@ -2,19 +2,19 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.trip import (
     Preferences, 
     Itinerary, 
-    TripGenerateResponse, 
+    # TripGenerateResponse, 
     TripSummary,
-    CostBreakdown
+    # CostBreakdown
 )
 from app.services.trip import TripService
-from app.services.agent_service import AgentService
+# from app.services.agent_service import AgentService
 from app.database import get_db
-import os
+# import os
 
 router = APIRouter()
 
 # Flag to enable/disable agent (useful for testing)
-USE_AGENT = os.getenv("USE_AGENT", "false").lower() == "true"
+# USE_AGENT = os.getenv("USE_AGENT", "false").lower() == "true"
 
 
 @router.get("/api/trips", response_model=list[TripSummary])
@@ -27,59 +27,59 @@ def list_trips(db = Depends(get_db)):
     return TripService.list_trips(db)
 
 
-@router.post("/api/trip/generate", response_model=TripGenerateResponse)
-async def generate_trip(preferences: Preferences, db = Depends(get_db)):
-    """
-    Generate a new trip itinerary based on user preferences.
+# @router.post("/api/trip/generate", response_model=TripGenerateResponse)
+# async def generate_trip(preferences: Preferences, db = Depends(get_db)):
+#     """
+#     Generate a new trip itinerary based on user preferences.
     
-    Returns the itinerary along with cost metadata.
-    Preferences are automatically validated by Pydantic.
-    FastAPI will return 422 with validation errors if invalid.
-    """
-    # Default metadata for mock/fallback
-    metadata = {
-        "total_cost": None,
-        "cost_breakdown": None,
-        "budget_status": "unknown",
-        "over_budget": False
-    }
+#     Returns the itinerary along with cost metadata.
+#     Preferences are automatically validated by Pydantic.
+#     FastAPI will return 422 with validation errors if invalid.
+#     """
+#     # Default metadata for mock/fallback
+#     metadata = {
+#         "total_cost": None,
+#         "cost_breakdown": None,
+#         "budget_status": "unknown",
+#         "over_budget": False
+#     }
     
-    # Generate itinerary
-    if USE_AGENT:
-        try:
-            print(f"🤖 Using AI Agent to generate itinerary...")
-            itinerary, metadata = await AgentService.generate_itinerary_from_agent(preferences)
+#     # Generate itinerary
+#     if USE_AGENT:
+#         try:
+#             print(f"🤖 Using AI Agent to generate itinerary...")
+#             itinerary, metadata = await AgentService.generate_itinerary_from_agent(preferences)
             
-            # Log cost info
-            if metadata.get("total_cost"):
-                print(f"💰 Total Cost: ${metadata['total_cost']:.2f}")
-                print(f"📊 Breakdown: {metadata['cost_breakdown']}")
+#             # Log cost info
+#             if metadata.get("total_cost"):
+#                 print(f"💰 Total Cost: ${metadata['total_cost']:.2f}")
+#                 print(f"📊 Breakdown: {metadata['cost_breakdown']}")
             
-            if metadata.get("over_budget"):
-                print(f"⚠️  Warning: Trip is over budget by ${metadata['total_cost'] - preferences.budget_limit:.2f}")
+#             if metadata.get("over_budget"):
+#                 print(f"⚠️  Warning: Trip is over budget by ${metadata['total_cost'] - preferences.budget_limit:.2f}")
                 
-        except Exception as e:
-            print(f"❌ Agent failed: {e}. Falling back to mock data.")
-            itinerary = TripService.generate_trip(preferences)
-    else:
-        print(f"📝 Using mock data (set USE_AGENT=true to use AI agent)")
-        itinerary = TripService.generate_trip(preferences)
+#         except Exception as e:
+#             print(f"❌ Agent failed: {e}. Falling back to mock data.")
+#             itinerary = TripService.generate_trip(preferences)
+#     else:
+#         print(f"📝 Using mock data (set USE_AGENT=true to use AI agent)")
+#         itinerary = TripService.generate_trip(preferences)
     
-    # Save to MongoDB
-    TripService.save_itinerary(db, itinerary)
+#     # Save to MongoDB
+#     TripService.save_itinerary(db, itinerary)
     
-    # Build response with cost metadata
-    cost_breakdown = None
-    if metadata.get("cost_breakdown"):
-        cost_breakdown = CostBreakdown(**metadata["cost_breakdown"])
+#     # Build response with cost metadata
+#     cost_breakdown = None
+#     if metadata.get("cost_breakdown"):
+#         cost_breakdown = CostBreakdown(**metadata["cost_breakdown"])
     
-    return TripGenerateResponse(
-        itinerary=itinerary,
-        total_cost=metadata.get("total_cost"),
-        cost_breakdown=cost_breakdown,
-        budget_status=metadata.get("budget_status", "unknown"),
-        over_budget=metadata.get("over_budget", False)
-    )
+#     return TripGenerateResponse(
+#         itinerary=itinerary,
+#         total_cost=metadata.get("total_cost"),
+#         cost_breakdown=cost_breakdown,
+#         budget_status=metadata.get("budget_status", "unknown"),
+#         over_budget=metadata.get("over_budget", False)
+#     )
 
 
 @router.get("/api/trip/{trip_id}", response_model=Itinerary)

@@ -48,5 +48,19 @@ def initialize_indexes():
     # Index for querying all discoveries for a trip
     db.discoveries.create_index([("trip_id", ASCENDING)])
     
+    # Sessions collection (for HITL workflow)
+    db.sessions.create_index([("session_id", ASCENDING)], unique=True)
+    db.sessions.create_index([("expires_at", ASCENDING)])  # For TTL cleanup
+    db.sessions.create_index([("status", ASCENDING)])
+    db.sessions.create_index([("created_at", ASCENDING)])
+    
+    # Agent checkpoints collection (for LangGraph state persistence)
+    db.agent_checkpoints.create_index([
+        ("thread_id", ASCENDING),
+        ("checkpoint_id", ASCENDING),
+        ("checkpoint_ns", ASCENDING)
+    ], unique=True)
+    db.agent_checkpoints.create_index([("thread_id", ASCENDING)])
+    
     print("✅ MongoDB indexes initialized")
 
