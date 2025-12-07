@@ -1,5 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.schemas.trip import Preferences, Itinerary
+from app.schemas.trip import (
+    Preferences, 
+    Itinerary, 
+    TripGenerateResponse, 
+    TripSummary,
+    CostBreakdown
+)
 from app.services.trip import TripService
 from app.services.agent_service import AgentService
 from app.database import get_db
@@ -10,14 +16,34 @@ router = APIRouter()
 # Flag to enable/disable agent (useful for testing)
 USE_AGENT = os.getenv("USE_AGENT", "false").lower() == "true"
 
-@router.post("/api/trip/generate", response_model=Itinerary)
+
+@router.get("/api/trips", response_model=list[TripSummary])
+def list_trips(db = Depends(get_db)):
+    """
+    List all trips with summary information.
+    
+    Returns a list of trip summaries (not full itineraries).
+    """
+    return TripService.list_trips(db)
+
+
+@router.post("/api/trip/generate", response_model=TripGenerateResponse)
 async def generate_trip(preferences: Preferences, db = Depends(get_db)):
     """
     Generate a new trip itinerary based on user preferences.
     
+    Returns the itinerary along with cost metadata.
     Preferences are automatically validated by Pydantic.
     FastAPI will return 422 with validation errors if invalid.
     """
+    # Default metadata for mock/fallback
+    metadata = {
+        "total_cost": None,
+        "cost_breakdown": None,
+        "budget_status": "unknown",
+        "over_budget": False
+    }
+    
     # Generate itinerary
     if USE_AGENT:
         try:
@@ -25,8 +51,9 @@ async def generate_trip(preferences: Preferences, db = Depends(get_db)):
             itinerary, metadata = await AgentService.generate_itinerary_from_agent(preferences)
             
             # Log cost info
-            print(f"💰 Total Cost: ${metadata['total_cost']:.2f}")
-            print(f"📊 Breakdown: {metadata['cost_breakdown']}")
+            if metadata.get("total_cost"):
+                print(f"💰 Total Cost: ${metadata['total_cost']:.2f}")
+                print(f"📊 Breakdown: {metadata['cost_breakdown']}")
             
             if metadata.get("over_budget"):
                 print(f"⚠️  Warning: Trip is over budget by ${metadata['total_cost'] - preferences.budget_limit:.2f}")
@@ -41,7 +68,18 @@ async def generate_trip(preferences: Preferences, db = Depends(get_db)):
     # Save to MongoDB
     TripService.save_itinerary(db, itinerary)
     
-    return itinerary
+    # Build response with cost metadata
+    cost_breakdown = None
+    if metadata.get("cost_breakdown"):
+        cost_breakdown = CostBreakdown(**metadata["cost_breakdown"])
+    
+    return TripGenerateResponse(
+        itinerary=itinerary,
+        total_cost=metadata.get("total_cost"),
+        cost_breakdown=cost_breakdown,
+        budget_status=metadata.get("budget_status", "unknown"),
+        over_budget=metadata.get("over_budget", False)
+    )
 
 
 @router.get("/api/trip/{trip_id}", response_model=Itinerary)

@@ -107,3 +107,35 @@ class Itinerary(ItineraryLLMCreate):
     trip_id: str
     days: list[Day]
     budget_limit: float
+
+
+# ============================================================================
+# API RESPONSE SCHEMAS
+# ============================================================================
+
+class CostBreakdown(BaseModel):
+    """Cost breakdown by category"""
+    flights: float = 0.0
+    hotels: float = 0.0
+    activities: float = 0.0
+    food: float = 0.0
+
+
+class TripGenerateResponse(BaseModel):
+    """Response from trip generation endpoint"""
+    itinerary: Itinerary
+    total_cost: float | None
+    cost_breakdown: CostBreakdown | None
+    budget_status: str  # "under", "over", "unknown"
+    over_budget: bool
+
+
+class TripSummary(BaseModel):
+    """Summary of a trip for listing endpoints"""
+    trip_id: str
+    trip_title: str
+    budget_limit: float
+    destinations: list[str]  # Extracted from days
+    num_days: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
