@@ -10,3 +10,4 @@ dist/
 build/
 mds/
 old_versions/
+logs/

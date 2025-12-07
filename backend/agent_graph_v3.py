@@ -14,6 +14,8 @@ import json
 from pathlib import Path
 from typing import Annotated, List, Literal, TypedDict, Generator
 from datetime import datetime
+from pathlib import Path
+import os
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
@@ -159,6 +161,18 @@ def create_planner_node(llm_with_tools, debug=False):
             if hasattr(response, 'content') and response.content:
                 content = response.content
                 print(f"\n📝 LLM Response ({len(content)} chars):")
+                
+                # ALWAYS log full response to file for debugging JSON issues
+                logs_dir = Path(__file__).parent / "logs"
+                logs_dir.mkdir(exist_ok=True)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                log_file = logs_dir / f"llm_response_{timestamp}.json"
+                
+                with open(log_file, 'w') as f:
+                    f.write(content)
+                print(f"   💾 Full response saved to: {log_file.name}")
+                
                 # Try to parse as JSON for prettier output
                 try:
                     parsed = json.loads(content)
@@ -269,7 +283,25 @@ def create_auditor_node(debug=False):
             }
             
         except (json.JSONDecodeError, KeyError, ValueError) as e:
-            print(f"⚠️ AUDITOR: Failed to parse JSON - {e}")
+            print(f"\n⚠️ AUDITOR: Failed to parse JSON - {e}")
+            
+            if debug:
+                # Save the problematic response for inspection
+                logs_dir = Path(__file__).parent / "logs"
+                logs_dir.mkdir(exist_ok=True)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                error_log = logs_dir / f"parse_error_{timestamp}.txt"
+                
+                with open(error_log, 'w') as f:
+                    f.write(f"Error: {e}\n\n")
+                    f.write("="*60 + "\n")
+                    f.write("RAW CONTENT:\n")
+                    f.write("="*60 + "\n")
+                    f.write(content)
+                
+                print(f"   💾 Error details saved to: {error_log.name}")
+            
             feedback_msg = format_json_parse_error(str(e))
             
             return {
@@ -431,7 +463,7 @@ def build_agent_graph(checkpointer, langchain_tools, debug=False):
     # Get LLM from provider wrapper (configurable via LLM_PROVIDER, LLM_MODEL env vars)
     from app.services.llm import get_llm, get_llm_config
     
-    llm = get_llm()
+    llm = get_llm(provider="openai", model="gpt-5.1", temperature=0)
     llm_with_tools = llm.bind_tools(langchain_tools)
     
     if debug:
