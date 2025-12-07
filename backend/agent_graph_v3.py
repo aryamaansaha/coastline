@@ -778,8 +778,8 @@ if __name__ == "__main__":
     test_preferences = {
         "destinations": ["London", "Paris"],
         "origin": "New York",
-        "start_date": "2025-06-01",
-        "end_date": "2025-06-07",
+        "start_date": "2026-02-01",
+        "end_date": "2026-02-07",
         "budget_limit": 2500.0
     }
     
