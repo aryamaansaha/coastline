@@ -45,7 +45,7 @@ class PlanState(TypedDict):
     # Conversation history
     messages: Annotated[List[BaseMessage], add_messages]
     
-    # User inputs (immutable after initial setup)
+    # User inputs (can be updated by human - e.g., budget increase)
     preferences: dict  # Structured JSON from Preferences schema
     
     # Execution state (mutable)
@@ -54,7 +54,11 @@ class PlanState(TypedDict):
     cost_breakdown: dict | None  # By category (flights, hotels, activities)
     budget_status: Literal["unknown", "under", "over"]  # Set by auditor
     is_approved: bool  # Set by human review
-    revision_count: int  # Track how many times we've asked LLM to revise
+    revision_count: int  # Track schema validation retries (NOT budget revisions)
+    
+    # Human-in-the-loop (for valid itineraries)
+    awaiting_human: bool  # True when waiting for human decision
+    human_decision: dict | None  # {"action": "approve"|"revise", "feedback": str, "new_budget": float|None}
 
 
 # ============================================================================
@@ -285,38 +289,178 @@ def create_auditor_node(debug=False):
     return auditor_node
 
 
+# ============================================================================
+# HUMAN REVIEW - Configurable callback for human-in-the-loop
+# ============================================================================
+
+# Default human decision callback (for CLI testing)
+# In production, this would be replaced with a web UI callback
+def _default_human_callback(state: PlanState) -> dict:
+    """
+    Interactive CLI callback for human decisions.
+    Returns: {"action": "approve"|"revise", "feedback": str|None, "new_budget": float|None}
+    """
+    total_cost = state.get("total_cost", 0)
+    budget_limit = state.get("preferences", {}).get("budget_limit", 0)
+    budget_status = state.get("budget_status", "unknown")
+    
+    print("\n" + "="*60)
+    print("👤 HUMAN REVIEW REQUIRED")
+    print("="*60)
+    print(f"💰 Total Cost: ${total_cost:.2f}")
+    print(f"🎯 Budget Limit: ${budget_limit:.2f}")
+    print(f"📊 Status: {budget_status.upper()}")
+    
+    if budget_status == "over":
+        over_by = total_cost - budget_limit
+        print(f"⚠️  Over budget by: ${over_by:.2f}")
+    
+    print("\nOptions:")
+    print("  [1] Approve itinerary as-is")
+    print("  [2] Request revision (with feedback)")
+    print("  [3] Increase budget and request revision")
+    
+    while True:
+        try:
+            choice = input("\nYour choice (1/2/3): ").strip()
+            
+            if choice == "1":
+                return {"action": "approve", "feedback": None, "new_budget": None}
+            
+            elif choice == "2":
+                feedback = input("Enter feedback for the planner: ").strip()
+                if not feedback:
+                    feedback = "Please revise the itinerary."
+                return {"action": "revise", "feedback": feedback, "new_budget": None}
+            
+            elif choice == "3":
+                while True:
+                    try:
+                        new_budget = float(input(f"New budget (current: ${budget_limit:.2f}): $").strip())
+                        if new_budget <= 0:
+                            print("Budget must be positive.")
+                            continue
+                        break
+                    except ValueError:
+                        print("Please enter a valid number.")
+                
+                feedback = input("Enter feedback for the planner (or press Enter for default): ").strip()
+                if not feedback:
+                    feedback = f"Budget has been increased to ${new_budget:.2f}. Please create a new itinerary within this budget."
+                return {"action": "revise", "feedback": feedback, "new_budget": new_budget}
+            
+            else:
+                print("Invalid choice. Please enter 1, 2, or 3.")
+        except EOFError:
+            # Non-interactive mode - auto-approve
+            print("\n[Non-interactive mode] Auto-approving...")
+            return {"action": "approve", "feedback": None, "new_budget": None}
+
+
+# Auto-approve callback for testing
+def _auto_approve_callback(state: PlanState) -> dict:
+    """Auto-approve callback for automated testing."""
+    print("\n✅ [TEST MODE] Auto-approving itinerary")
+    return {"action": "approve", "feedback": None, "new_budget": None}
+
+
+# Global callback - can be swapped for different modes
+_human_decision_callback = _auto_approve_callback  # Default to auto-approve for testing
+
+
+def set_human_review_callback(callback):
+    """Set the human review callback function.
+    
+    Args:
+        callback: Function that takes PlanState and returns 
+                  {"action": "approve"|"revise", "feedback": str|None, "new_budget": float|None}
+    
+    Use cases:
+        - CLI mode: set_human_review_callback(_default_human_callback)
+        - Test mode: set_human_review_callback(_auto_approve_callback)
+        - Web mode: set_human_review_callback(your_api_callback)
+    """
+    global _human_decision_callback
+    _human_decision_callback = callback
+
+
 def human_review_node(state: PlanState) -> dict:
     """
-    Simulates human approval/feedback.
-    In production, this would be replaced with a web UI interaction.
+    Human-in-the-loop review node.
     
-    For now: Auto-approve if budget is OK, otherwise ask for revision.
+    Behavior:
+    - Schema validation failures (budget_status == "unknown"): Auto-retry with limit
+    - Valid itineraries: ALWAYS require human approval (no auto-approve)
+    
+    Human can:
+    - Approve the itinerary
+    - Request revision with feedback
+    - Increase budget and request revision
     """
     budget_status = state.get("budget_status", "unknown")
-    is_approved = state.get("is_approved", False)
+    revision_count = state.get("revision_count", 0)
+    MAX_SCHEMA_REVISIONS = 3  # Only for schema/validation failures
     
-    # Programmatic decision (can be replaced with web UI input)
-    if budget_status == "under":
-        print("\n✅ HUMAN REVIEW: Budget satisfied - Auto-approving")
-        return {"is_approved": True}
-    elif budget_status == "over":
-        revision_count = state.get("revision_count", 0)
-        if revision_count < 2:  # Max 2 revisions
-            print(f"\n🔄 HUMAN REVIEW: Over budget - Requesting revision (attempt {revision_count + 1}/2)")
+    # =========================================================================
+    # CASE 1: Schema validation failed - auto-retry with limit
+    # =========================================================================
+    if budget_status == "unknown":
+        if revision_count >= MAX_SCHEMA_REVISIONS:
+            print(f"\n❌ HUMAN REVIEW: Max schema retries ({MAX_SCHEMA_REVISIONS}) reached")
+            print("   Agent failed to produce valid itinerary format.")
+            # Return failed state - can't auto-approve invalid schema
             return {
                 "is_approved": False,
-                "revision_count": revision_count + 1,
-                "messages": [HumanMessage(content="Please revise the plan to fit within budget.")]
+                "awaiting_human": True,  # Let human decide what to do
             }
-        else:
-            print("\n⚠️  HUMAN REVIEW: Max revisions reached - Suggesting budget increase")
-            return {"is_approved": True}  # Accept but flag for user
-    else:
-        print("\n❌ HUMAN REVIEW: Invalid itinerary format - Requesting correction")
+        
+        print(f"\n🔄 HUMAN REVIEW: Invalid format - Auto-retrying ({revision_count + 1}/{MAX_SCHEMA_REVISIONS})")
         return {
             "is_approved": False,
+            "revision_count": revision_count + 1,
             "messages": [HumanMessage(content=AGENT_REQUEST_VALID_JSON)]
         }
+    
+    # =========================================================================
+    # CASE 2: Valid itinerary - REQUIRE human decision (no auto-approve)
+    # =========================================================================
+    total_cost = state.get("total_cost", 0)
+    budget_limit = state.get("preferences", {}).get("budget_limit", 0)
+    
+    # Get human decision via callback
+    decision = _human_decision_callback(state)
+    
+    # Process the decision
+    if decision["action"] == "approve":
+        print("\n✅ HUMAN REVIEW: Itinerary APPROVED")
+        return {"is_approved": True, "awaiting_human": False}
+    
+    elif decision["action"] == "revise":
+        feedback = decision.get("feedback", "Please revise the itinerary.")
+        new_budget = decision.get("new_budget")
+        
+        result = {
+            "is_approved": False,
+            "awaiting_human": False,
+            "messages": [HumanMessage(content=feedback)]
+        }
+        
+        # Update budget if human increased it
+        if new_budget is not None and new_budget != budget_limit:
+            # Create updated preferences with new budget
+            updated_preferences = state.get("preferences", {}).copy()
+            updated_preferences["budget_limit"] = new_budget
+            result["preferences"] = updated_preferences
+            print(f"\n💰 HUMAN REVIEW: Budget increased to ${new_budget:.2f}")
+        
+        print(f"\n🔄 HUMAN REVIEW: Revision requested")
+        print(f"   Feedback: {feedback}")
+        return result
+    
+    else:
+        # Unknown action - treat as approve
+        print(f"\n⚠️  HUMAN REVIEW: Unknown action '{decision.get('action')}' - treating as approve")
+        return {"is_approved": True, "awaiting_human": False}
 
 
 # ============================================================================
@@ -335,43 +479,65 @@ def route_after_planner(state: PlanState) -> Literal["tools", "auditor"]:
     return "auditor"
 
 
-def route_after_auditor(state: PlanState) -> Literal["human_review", "planner"]:
-    """Route from auditor based on budget status"""
-    budget_status = state.get("budget_status", "unknown")
+def route_after_auditor(state: PlanState) -> Literal["human_review"]:
+    """Route from auditor to human review for approval/revision decision.
     
-    if budget_status == "unknown":
-        # Invalid output, send back to planner
-        return "planner"
-    
-    # Valid output, go to human review
+    Always goes to human_review so revision count is properly tracked,
+    even when budget_status is 'unknown' (validation failed).
+    """
+    # Always go to human_review for consistent revision tracking
     return "human_review"
 
 
 def route_after_review(state: PlanState) -> Literal["planner", "__end__"]:
-    """Route from human review based on approval"""
+    """Route from human review based on approval.
+    
+    - If approved: END
+    - If not approved (revision requested): Back to planner
+    - If awaiting_human and not approved: END with failure (max retries hit)
+    """
     is_approved = state.get("is_approved", False)
+    awaiting_human = state.get("awaiting_human", False)
     
     if is_approved:
         return "__end__"
-    else:
-        return "planner"
+    
+    # If awaiting human but not approved, it means max retries hit - end with failure
+    if awaiting_human and not is_approved:
+        print("\n⛔ Agent failed to produce valid itinerary - ending.")
+        return "__end__"
+    
+    # Revision requested - go back to planner
+    return "planner"
 
 
 # ============================================================================
 # HELPER: Run Agent with Preferences
 # ============================================================================
 
-async def run_agent_with_preferences(preferences: dict, debug: bool = False) -> dict:
+async def run_agent_with_preferences(
+    preferences: dict, 
+    debug: bool = False,
+    interactive: bool = False
+) -> dict:
     """
     Run the agent with structured preferences.
     
     Args:
         preferences: Dict matching Preferences schema from FastAPI
         debug: If True, print detailed debug output
+        interactive: If True, use CLI prompts for human review. 
+                     If False (default), auto-approve itineraries.
         
     Returns:
         Dict with itinerary, cost info, and status
     """
+    # Set the human review callback based on mode
+    if interactive:
+        set_human_review_callback(_default_human_callback)
+    else:
+        set_human_review_callback(_auto_approve_callback)
+    
     server_path = str(Path(__file__).parent / "mcp" / "server.py")
     
     # Setup MCP Client
@@ -430,11 +596,16 @@ async def run_agent_with_preferences(preferences: dict, debug: bool = False) -> 
             "cost_breakdown": None,
             "budget_status": "unknown",
             "is_approved": False,
-            "revision_count": 0
+            "revision_count": 0,
+            "awaiting_human": False,
+            "human_decision": None
         }
         
-        # Run graph
-        config = {"configurable": {"thread_id": "trip-generation"}}
+        # Run graph with increased recursion limit for complex multi-city trips
+        config = {
+            "configurable": {"thread_id": "trip-generation"},
+            "recursion_limit": 50  # Increased from default 25
+        }
         
         print(f"\n🚀 Starting agent with preferences:")
         print(json.dumps(preferences, indent=2))

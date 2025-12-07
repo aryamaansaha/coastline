@@ -14,6 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import currency conversion utility
+from currency import convert_to_usd
+
 load_dotenv()
 
 # Initialize MCP server
@@ -116,10 +119,13 @@ def search_flights(origin: str, destination: str, departure_date: str, return_da
 
         for offer in response.data:
             # Extract only decision-critical info
-            price = offer.get("price", {}).get("grandTotal", offer.get("price", {}).get("total"))
-            currency = offer.get("price", {}).get("currency", "USD")
+            original_price = float(offer.get("price", {}).get("grandTotal", offer.get("price", {}).get("total", 0)))
+            original_currency = offer.get("price", {}).get("currency", "USD")
             validating_airline = offer.get("validatingAirlineCodes", [""])[0]
             airline_name = carriers.get(validating_airline, validating_airline)
+            
+            # Convert price to USD for consistent budget calculations
+            price_usd = convert_to_usd(original_price, original_currency)
             
             # Get itinerary details (outbound and return if round-trip)
             itineraries = offer.get("itineraries", [])
@@ -133,14 +139,19 @@ def search_flights(origin: str, destination: str, departure_date: str, return_da
             flight_data = {
                 "id": offer.get("id"),
                 "airline": airline_name,
-                "price": float(price),
-                "currency": currency,
+                "price": price_usd,  # Always in USD
+                "currency": "USD",
                 "outbound": {
                     "departure": outbound_first_seg.get("departure", {}).get("at"),
                     "arrival": outbound_last_seg.get("arrival", {}).get("at"),
                     "duration": outbound.get("duration")
                 }
             }
+            
+            # Include original currency info if different from USD
+            if original_currency != "USD":
+                flight_data["original_price"] = original_price
+                flight_data["original_currency"] = original_currency
             
             # Add return leg if round-trip
             if len(itineraries) > 1:
@@ -206,60 +217,148 @@ def search_hotels(city_code: str, check_in_date: str, check_out_date: str) -> di
             logger.warning("No hotels found in response")
             return {"hotels": [], "message": "No hotels found."}
             
-        # Limit to 5 hotels for pricing to save time/tokens
-        hotel_ids = [h["hotelId"] for h in hotels_resp.data[:5]]
+        # Get 15 hotel IDs to increase chances of valid results
+        TARGET_RESULTS = 5
+        FALLBACK_RESULTS = 5  # If batch fails, only try 3 individually
+        hotel_ids = [h["hotelId"] for h in hotels_resp.data[:15]]
         logger.info(f"Found {len(hotel_ids)} hotels, fetching offers...")
         
-        # 2. Get offers with dates
-        offers_resp = amadeus.shopping.hotel_offers_search.get(
-            hotelIds=",".join(hotel_ids),
-            adults=1,
-            checkInDate=check_in_date,
-            checkOutDate=check_out_date,
-            currency="USD"
-        )
-        
         slim_hotels = []
-        if offers_resp.data:
-            for offer in offers_resp.data:
-                if not offer.get("available", False):
-                    continue
-                    
-                hotel = offer.get("hotel", {})
-                offers_list = offer.get("offers", [])
-                
-                # Filter out known test/sandbox properties from Amadeus
-                hotel_name = (hotel.get("name") or "").strip()
-                if hotel_name.lower() == "test property":
-                    logger.info("Skipping test/sandbox hotel property")
-                    continue
-                
-                if not offers_list:
-                    continue
-                
-                # Get first (best) offer
-                best_offer = offers_list[0]
-                price = best_offer.get("price", {})
-                
-                # Calculate total price
-                total = float(price.get("total", price.get("base", "0")))
-                
-                # Calculate per-night price (simple division is most accurate)
-                price_per_night = total / nights if nights > 0 else total
-                
-                slim_hotels.append({
-                    "name": hotel_name,
-                    "hotel_id": hotel.get("hotelId"),
-                    "total_price": round(total, 2),  # Total for entire stay
-                    "price_per_night": round(price_per_night, 2),  # Accurate per-night
-                    "currency": price.get("currency", "USD"),
-                    "rating": hotel.get("rating", "N/A"),
-                    "nights": nights  # Include for transparency
-                })
         
+        # 2. Try batch request first (most efficient)
+        try:
+            offers_resp = amadeus.shopping.hotel_offers_search.get(
+                hotelIds=",".join(hotel_ids),
+                adults=1,
+                checkInDate=check_in_date,
+                checkOutDate=check_out_date,
+                currency="USD"
+            )
+            
+            # Process batch results
+            if offers_resp.data:
+                for offer in offers_resp.data:
+                    if not offer.get("available", False):
+                        continue
+                        
+                    hotel = offer.get("hotel", {})
+                    offers_list = offer.get("offers", [])
+                    
+                    # Filter out known test/sandbox properties from Amadeus
+                    hotel_name = (hotel.get("name") or "").strip()
+                    if hotel_name.lower() == "test property":
+                        logger.info("Skipping test/sandbox hotel property")
+                        continue
+                    
+                    if not offers_list:
+                        continue
+                    
+                    # Get first (best) offer
+                    best_offer = offers_list[0]
+                    price = best_offer.get("price", {})
+                    
+                    # Calculate total price in original currency
+                    original_total = float(price.get("total", price.get("base", "0")))
+                    original_currency = price.get("currency", "USD")
+                    
+                    # Convert to USD for consistent budget calculations
+                    total_usd = convert_to_usd(original_total, original_currency)
+                    price_per_night_usd = total_usd / nights if nights > 0 else total_usd
+                    
+                    hotel_data = {
+                        "name": hotel_name,
+                        "hotel_id": hotel.get("hotelId"),
+                        "total_price": total_usd,  # Always in USD
+                        "price_per_night": round(price_per_night_usd, 2),
+                        "currency": "USD",
+                        "rating": hotel.get("rating", "N/A"),
+                        "nights": nights
+                    }
+                    
+                    # Include original currency info if different from USD
+                    if original_currency != "USD":
+                        hotel_data["original_total"] = round(original_total, 2)
+                        hotel_data["original_currency"] = original_currency
+                    
+                    slim_hotels.append(hotel_data)
+            
+            logger.info(f"Batch request successful, got {len(slim_hotels)} valid hotels")
+        
+        except ResponseError as batch_error:
+            # Batch failed (likely one bad hotel ID) - try individually with limit
+            logger.warning(f"Batch hotel request failed: {batch_error}")
+            logger.info(f"Trying first {FALLBACK_RESULTS} hotels individually (API call limit)...")
+            
+            for hotel_id in hotel_ids[:FALLBACK_RESULTS]:
+                if len(slim_hotels) >= FALLBACK_RESULTS:
+                    break  # Already have enough
+                
+                try:
+                    offers_resp = amadeus.shopping.hotel_offers_search.get(
+                        hotelIds=hotel_id,  # One at a time
+                        adults=1,
+                        checkInDate=check_in_date,
+                        checkOutDate=check_out_date,
+                        currency="USD"
+                    )
+                    
+                    if not offers_resp.data:
+                        continue
+                    
+                    # Process individual result
+                    for offer in offers_resp.data:
+                        if not offer.get("available", False):
+                            continue
+                        
+                        hotel = offer.get("hotel", {})
+                        offers_list = offer.get("offers", [])
+                        hotel_name = (hotel.get("name") or "").strip()
+                        
+                        if hotel_name.lower() == "test property":
+                            continue
+                        
+                        if not offers_list:
+                            continue
+                        
+                        best_offer = offers_list[0]
+                        price = best_offer.get("price", {})
+                        
+                        # Calculate total price in original currency
+                        original_total = float(price.get("total", price.get("base", "0")))
+                        original_currency = price.get("currency", "USD")
+                        
+                        # Convert to USD for consistent budget calculations
+                        total_usd = convert_to_usd(original_total, original_currency)
+                        price_per_night_usd = total_usd / nights if nights > 0 else total_usd
+                        
+                        hotel_data = {
+                            "name": hotel_name,
+                            "hotel_id": hotel.get("hotelId"),
+                            "total_price": total_usd,  # Always in USD
+                            "price_per_night": round(price_per_night_usd, 2),
+                            "currency": "USD",
+                            "rating": hotel.get("rating", "N/A"),
+                            "nights": nights
+                        }
+                        
+                        # Include original currency info if different from USD
+                        if original_currency != "USD":
+                            hotel_data["original_total"] = round(original_total, 2)
+                            hotel_data["original_currency"] = original_currency
+                        
+                        slim_hotels.append(hotel_data)
+                        
+                except ResponseError as individual_error:
+                    logger.warning(f"Skipping invalid hotel {hotel_id}: {individual_error}")
+                    continue
+            
+            logger.info(f"Fallback completed, got {len(slim_hotels)} valid hotels")
+        
+        # Sort by price and return top 5 (or whatever we got)
         slim_hotels.sort(key=lambda x: x["total_price"])
-        logger.info(f"Returning {len(slim_hotels)} hotels")
-        return {"hotels": slim_hotels}
+        result_count = min(len(slim_hotels), TARGET_RESULTS)
+        logger.info(f"Returning {result_count} hotels (requested {TARGET_RESULTS})")
+        return {"hotels": slim_hotels[:TARGET_RESULTS]}
 
     except ResponseError as e:
         logger.error(f"Amadeus API Error in hotels: {e}")
