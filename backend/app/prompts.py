@@ -212,7 +212,7 @@ When you've completed planning, respond with ONLY a JSON object (no additional t
 - Output ONLY the JSON, no preamble or explanation
 - Each activity MUST have all fields (type, time_slot, title, description, etc.)
 - Use "activity" type for sightseeing, museums, etc.
-- Do not use "food" type. Use "activity" type instead.
+- Use "activity" type for restaurants, meals, and any other activities
 - Include estimated_cost for all items (use tool results)
 """
 
