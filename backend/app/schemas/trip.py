@@ -83,7 +83,7 @@ class ActivityLLMCreate(BaseModel):
 class Activity(ActivityLLMCreate):
     id: str
     location: Location
-    time_slot: datetime
+    # time_slot inherited from ActivityLLMCreate as str (e.g., "08:31 AM")
 
 # Day we obtain from the LLM (as part of the ItineraryLLMCreate output itself)
 class DayLLMCreate(BaseModel):
@@ -118,7 +118,6 @@ class CostBreakdown(BaseModel):
     flights: float = 0.0
     hotels: float = 0.0
     activities: float = 0.0
-    food: float = 0.0
 
 
 class TripGenerateResponse(BaseModel):
