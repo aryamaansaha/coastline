@@ -10,8 +10,8 @@ import requests
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from app.prompts import LOCALIZATION_PROMPT
 from app.services.utils import ResponseParser
+from pydantic import ValidationError
 
 load_dotenv()
 
@@ -40,6 +40,7 @@ class LocalizeService:
     def discover_places(lat: float, lng: float, place_type: str = "restaurant", return_grounding_info: bool = False):
         """
         Generic place discovery using Gemini + Google Maps grounding.
+        Validates LLM output against PlaceLLMCreate schema with 1 retry on failure.
         
         Args:
             lat: Latitude
@@ -48,46 +49,93 @@ class LocalizeService:
             return_grounding_info: Whether to return grounding metadata
         
         Returns:
-            Tuple of (places_list, grounding_metadata)
+            Tuple of (validated_places_list, grounding_metadata)
         """
         from app.prompts import PROMPT_MAP
+        from app.schemas.discovery import PlaceLLMCreate
         
-        # Get appropriate prompt for place type
+        MAX_RETRIES = 2  # 1 initial + 1 retry
         prompt = PROMPT_MAP.get(place_type, PROMPT_MAP["restaurant"])
-        
         client = genai.Client()
-        print(f"DEBUG: Discovering {place_type} with lat={lat}, lng={lng}")
         
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_maps=types.GoogleMaps(enable_widget=True))],
-                tool_config=types.ToolConfig(
-                    retrieval_config=types.RetrievalConfig(
-                        lat_lng=types.LatLng(latitude=lat, longitude=lng)
-                    )
-                ),
-            ),
-        )
-        print(f"DEBUG: API response: {response.text[:200]}")
-
-
-        grounding = response.candidates[0].grounding_metadata
-        # print("\nGrounding metadata:", grounding)
-
-        # if grounding and grounding.grounding_chunks:
-        #     print("\nSources:")
-        #     for chunk in grounding.grounding_chunks:
-        #         if chunk.maps:
-        #             print(f"- {chunk.maps.title}: {chunk.maps.uri}")
-        # else:
-        #     print("\n(No Google Maps grounding – tool probably not used)")
-
+        last_error = None
+        last_grounding = None
+        
+        for attempt in range(MAX_RETRIES):
+            print(f"[Discovery] Discovering {place_type} near ({lat:.4f}, {lng:.4f}) - attempt {attempt + 1}/{MAX_RETRIES}")
+            
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        tools=[types.Tool(google_maps=types.GoogleMaps(enable_widget=True))],
+                        tool_config=types.ToolConfig(
+                            retrieval_config=types.RetrievalConfig(
+                                lat_lng=types.LatLng(latitude=lat, longitude=lng)
+                            )
+                        ),
+                    ),
+                )
+                
+                print(f"[Discovery] API response preview: {response.text[:150]}...")
+                
+                # Get grounding metadata
+                last_grounding = None
+                if response.candidates and response.candidates[0].grounding_metadata:
+                    last_grounding = response.candidates[0].grounding_metadata
+                
+                # Parse JSON from response
+                raw_places = ResponseParser.extract_json(response.text)
+                
+                if not raw_places:
+                    last_error = "Failed to extract JSON from LLM response"
+                    print(f"[Discovery] ⚠️ {last_error}")
+                    continue
+                
+                # Handle single place response
+                if not isinstance(raw_places, list):
+                    raw_places = [raw_places]
+                
+                # Validate each place against schema
+                validated_places = []
+                validation_errors = []
+                
+                for i, place in enumerate(raw_places):
+                    try:
+                        validated = PlaceLLMCreate(**place)
+                        validated_places.append(validated.model_dump())
+                    except ValidationError as e:
+                        validation_errors.append(f"Place {i} ({place.get('name', 'unknown')}): {e.errors()[0]['msg']}")
+                
+                # Log validation results
+                if validated_places:
+                    print(f"[Discovery] ✅ Validated {len(validated_places)}/{len(raw_places)} places")
+                    if validation_errors:
+                        print(f"[Discovery] ⚠️ Skipped invalid places: {len(validation_errors)}")
+                        for err in validation_errors[:3]:  # Show first 3 errors
+                            print(f"   - {err}")
+                    
+                    if return_grounding_info:
+                        return validated_places, last_grounding
+                    else:
+                        return validated_places, None
+                
+                # No valid places - will retry
+                last_error = f"All {len(raw_places)} places failed validation"
+                print(f"[Discovery] ⚠️ {last_error}")
+                
+            except Exception as e:
+                last_error = f"API error: {str(e)}"
+                print(f"[Discovery] ❌ {last_error}")
+        
+        # All retries exhausted
+        print(f"[Discovery] ❌ Discovery failed after {MAX_RETRIES} attempts: {last_error}")
+        
         if return_grounding_info:
-            return ResponseParser.extract_json(response.text), grounding
+            return [], last_grounding
         else:
-            return ResponseParser.extract_json(response.text), None
+            return [], None
 
 
 ## just for testing
