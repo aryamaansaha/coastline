@@ -161,18 +161,7 @@ def create_planner_node(llm_with_tools, debug=False):
             if hasattr(response, 'content') and response.content:
                 content = response.content
                 print(f"\n📝 LLM Response ({len(content)} chars):")
-                
-                # ALWAYS log full response to file for debugging JSON issues
-                logs_dir = Path(__file__).parent / "logs"
-                logs_dir.mkdir(exist_ok=True)
-                
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                log_file = logs_dir / f"llm_response_{timestamp}.json"
-                
-                with open(log_file, 'w') as f:
-                    f.write(content)
-                print(f"   💾 Full response saved to: {log_file.name}")
-                
+                # Do NOT log full raw response here anymore. Only in auditor if schema fails.
                 # Try to parse as JSON for prettier output
                 try:
                     parsed = json.loads(content)
@@ -236,6 +225,18 @@ def create_auditor_node(debug=False):
                 ]
                 
                 print(f"❌ AUDITOR: Schema validation failed")
+                # Save the raw LLM response to logs/ only on schema validation error
+                if debug:
+                    logs_dir = Path(__file__).parent / "logs"
+                    logs_dir.mkdir(exist_ok=True)
+                    
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    log_file = logs_dir / f"llm_response_{timestamp}.json"
+                    
+                    with open(log_file, 'w') as f:
+                        f.write(content)
+                    print(f"   💾 Full response saved to: {log_file.name}")
+                
                 feedback_msg = format_schema_validation_error(error_details)
                 
                 return {
