@@ -56,7 +56,7 @@ async def interactive_test():
     # Get user preferences
     print("\n📋 Enter your trip preferences:\n")
     
-    destination = input("   Destination (default: Paris): ").strip() or "Paris"
+    destinations = input("   Destinations (default: Paris): ").strip() or "Paris"
     origin = input("   Origin city (default: New York): ").strip() or "New York"
     
     days_input = input("   Trip length in days (default: 3): ").strip()
@@ -67,14 +67,14 @@ async def interactive_test():
     budget = float(budget_input) if budget_input else 1500.0
     
     preferences = {
-        "destinations": [destination],
+        "destinations": destinations.split(","),
         "origin": origin,
         "start_date": start.strftime("%Y-%m-%dT00:00:00Z"),
         "end_date": end.strftime("%Y-%m-%dT00:00:00Z"),
         "budget_limit": budget
     }
     
-    print(f"\n📅 Trip: {destination} from {origin}")
+    print(f"\n📅 Trip: {destinations} from {origin}")
     print(f"📆 Dates: {start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')} ({days} days)")
     print(f"💰 Budget: ${budget:.2f}")
     

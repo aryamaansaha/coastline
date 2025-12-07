@@ -87,36 +87,36 @@ amadeus = Client(
 # HELPER: BUDGET CALCULATOR
 # ============================================================================
 
-@mcp.tool()
-def calculate_itinerary_cost(line_items: List[Dict[str, Any]]) -> dict:
-    """
-    Calculate the total cost of a trip based on a list of items.
-    ALWAYS use this tool to sum up costs. Do not do math yourself.
+# @mcp.tool()
+# def calculate_itinerary_cost(line_items: List[Dict[str, Any]]) -> dict:
+#     """
+#     Calculate the total cost of a trip based on a list of items.
+#     ALWAYS use this tool to sum up costs. Do not do math yourself.
     
-    Args:
-        line_items: List of dicts, e.g., [{"category": "flight", "amount": 500.0, "description": "..."}, ...]
-    """
-    total = 0.0
-    breakdown = {}
+#     Args:
+#         line_items: List of dicts, e.g., [{"category": "flight", "amount": 500.0, "description": "..."}, ...]
+#     """
+#     total = 0.0
+#     breakdown = {}
     
-    for item in line_items:
-        try:
-            amount = float(item.get("amount", 0))
-            category = item.get("category", "misc")
-            total += amount
+#     for item in line_items:
+#         try:
+#             amount = float(item.get("amount", 0))
+#             category = item.get("category", "misc")
+#             total += amount
             
-            if category not in breakdown:
-                breakdown[category] = 0.0
-            breakdown[category] += amount
-        except (ValueError, TypeError):
-            continue
+#             if category not in breakdown:
+#                 breakdown[category] = 0.0
+#             breakdown[category] += amount
+#         except (ValueError, TypeError):
+#             continue
             
-    return {
-        "total_cost": round(total, 2),
-        "currency": "USD",
-        "category_breakdown": {k: round(v, 2) for k, v in breakdown.items()},
-        "item_count": len(line_items)
-    }
+#     return {
+#         "total_cost": round(total, 2),
+#         "currency": "USD",
+#         "category_breakdown": {k: round(v, 2) for k, v in breakdown.items()},
+#         "item_count": len(line_items)
+#     }
 
 # ============================================================================
 # FLIGHT SEARCH TOOL (SLIM + ROUND-TRIP)

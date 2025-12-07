@@ -139,7 +139,6 @@ When planning trips to multiple cities:
   * MUST include check_in and check_out dates
   * Returns total price for entire stay (not per night)
 - get_airport_code(city_name): Look up IATA codes
-- calculate_itinerary_cost(line_items): Calculate total cost (DO NOT USE - Auditor handles this)
 
 # Important Rules
 1. **Current Date**: {current_date}
