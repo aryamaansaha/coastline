@@ -1,4 +1,4 @@
-from app.schemas.trip import Preferences, Itinerary, Day, Activity, Location
+from app.schemas.trip import Preferences, Itinerary, Day, Activity, Location, TripSummary
 from datetime import datetime
 import uuid
 
@@ -122,6 +122,7 @@ class TripService:
             id=str(uuid.uuid4()),
             day_number=1,
             theme="Iconic Landmarks & Art",
+            city="Paris",
             activities=day1_activities
         )
         
@@ -129,6 +130,7 @@ class TripService:
             id=str(uuid.uuid4()),
             day_number=2,
             theme="Culture & Local Vibes",
+            city="Paris",
             activities=day2_activities
         )
         
@@ -210,3 +212,35 @@ class TripService:
         db.discoveries.delete_many({"trip_id": trip_id})
         
         return result.deleted_count > 0
+    
+    @staticmethod
+    def list_trips(db) -> list[TripSummary]:
+        """
+        List all trips with summary information.
+        
+        Returns list of TripSummary objects (not full itineraries).
+        """
+        # Get all itineraries, sorted by most recent first
+        docs = db.itineraries.find().sort("created_at", -1)
+        
+        summaries = []
+        for doc in docs:
+            # Extract unique cities from days
+            destinations = []
+            days = doc.get("days", [])
+            for day in days:
+                city = day.get("city", "")
+                if city and city not in destinations:
+                    destinations.append(city)
+            
+            summaries.append(TripSummary(
+                trip_id=doc.get("trip_id", ""),
+                trip_title=doc.get("trip_title", "Untitled Trip"),
+                budget_limit=doc.get("budget_limit", 0.0),
+                destinations=destinations,
+                num_days=len(days),
+                created_at=doc.get("created_at"),
+                updated_at=doc.get("updated_at")
+            ))
+        
+        return summaries

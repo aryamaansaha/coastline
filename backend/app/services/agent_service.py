@@ -6,12 +6,38 @@ Wraps the LangGraph agent and converts between FastAPI schemas and agent format.
 
 import asyncio
 from app.schemas.trip import Preferences, Itinerary, Day, Activity, Location
+from app.services.geocode import LocalizeService
 from datetime import datetime
 import uuid
 
 
 class AgentService:
     """Service for running the travel planning agent"""
+    
+    @staticmethod
+    def _geocode_location(address: str, fallback_query: str = None) -> tuple[float | None, float | None]:
+        """
+        Geocode an address using Nominatim.
+        
+        Args:
+            address: Primary address to geocode
+            fallback_query: Fallback query if address fails (e.g., location name + city)
+            
+        Returns:
+            Tuple of (lat, lng) or (None, None) if geocoding fails
+        """
+        # Try primary address
+        result = LocalizeService.geocode_nominatim(address)
+        if result:
+            return result
+        
+        # Try fallback query
+        if fallback_query:
+            result = LocalizeService.geocode_nominatim(fallback_query)
+            if result:
+                return result
+        
+        return None, None
     
     @staticmethod
     async def generate_itinerary_from_agent(preferences: Preferences) -> tuple[Itinerary, dict]:
@@ -53,16 +79,31 @@ class AgentService:
         # Parse days
         days = []
         for day_data in itinerary_data.get("days", []):
+            city = day_data.get("city", "")
+            
             # Parse activities
             activities = []
             for activity_data in day_data.get("activities", []):
-                # Create Location
+                # Create Location with geocoding
                 loc_data = activity_data.get("location", {})
+                loc_name = loc_data.get("name", "")
+                loc_address = loc_data.get("address", "")
+                
+                # Geocode the address
+                # Fallback: use location name + city if address fails
+                fallback_query = f"{loc_name}, {city}" if loc_name and city else None
+                lat, lng = AgentService._geocode_location(loc_address, fallback_query)
+                
+                if lat and lng:
+                    print(f"📍 Geocoded '{loc_name}': ({lat:.4f}, {lng:.4f})")
+                else:
+                    print(f"⚠️  Failed to geocode '{loc_name}' at '{loc_address}'")
+                
                 location = Location(
-                    name=loc_data.get("name", ""),
-                    address=loc_data.get("address", ""),
-                    lat=loc_data.get("lat"),
-                    lng=loc_data.get("lng")
+                    name=loc_name,
+                    address=loc_address,
+                    lat=lat,
+                    lng=lng
                 )
                 
                 # Parse time_slot
@@ -92,7 +133,7 @@ class AgentService:
                 id=str(uuid.uuid4()),
                 day_number=day_data.get("day_number", 1),
                 theme=day_data.get("theme", ""),
-                city=day_data.get("city", ""),
+                city=city,
                 activities=activities
             )
             days.append(day)
