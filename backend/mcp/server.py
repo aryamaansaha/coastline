@@ -1,12 +1,12 @@
 from mcp.server.fastmcp import FastMCP
 from amadeus import Client, ResponseError
 import os
-import time
 from dotenv import load_dotenv
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any
 import sys
 import logging
-from functools import wraps
+from app.services.utils import retry_with_backoff
+from currency import convert_to_usd
 
 # Setup logging to stderr
 logging.basicConfig(
@@ -16,57 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import currency conversion utility
-from currency import convert_to_usd
-
 load_dotenv()
-
-
-# ============================================================================
-# RETRY HELPER WITH EXPONENTIAL BACKOFF
-# ============================================================================
-
-def retry_with_backoff(max_retries: int = 3, base_delay: float = 1.0):
-    """
-    Decorator for retrying functions with exponential backoff.
-    Useful for handling rate limiting (429) and transient errors.
-    
-    Args:
-        max_retries: Maximum number of retry attempts (total tries = max_retries + 1)
-        base_delay: Base delay in seconds (doubles each retry)
-    """
-    def decorator(func: Callable):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            
-            for attempt in range(max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except ResponseError as e:
-                    last_exception = e
-                    error_str = str(e)
-                    
-                    # Check if it's a rate limit error (429)
-                    if "[429]" in error_str or "rate" in error_str.lower():
-                        if attempt < max_retries:
-                            delay = base_delay * (2 ** attempt)  # Exponential backoff
-                            logger.warning(f"Rate limited (429), retrying in {delay}s... (attempt {attempt + 1}/{max_retries + 1})")
-                            time.sleep(delay)
-                            continue
-                    
-                    # For other errors, don't retry
-                    raise
-                except Exception as e:
-                    # For non-Amadeus errors, don't retry
-                    raise
-            
-            # If we exhausted all retries, raise the last exception
-            if last_exception:
-                raise last_exception
-        
-        return wrapper
-    return decorator
 
 # Initialize MCP server
 mcp = FastMCP(name="coastline-travel")
