@@ -1,10 +1,12 @@
 from mcp.server.fastmcp import FastMCP
 from amadeus import Client, ResponseError
 import os
+import time
 from dotenv import load_dotenv
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 import sys
 import logging
+from functools import wraps
 
 # Setup logging to stderr
 logging.basicConfig(
@@ -18,6 +20,53 @@ logger = logging.getLogger(__name__)
 from currency import convert_to_usd
 
 load_dotenv()
+
+
+# ============================================================================
+# RETRY HELPER WITH EXPONENTIAL BACKOFF
+# ============================================================================
+
+def retry_with_backoff(max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Decorator for retrying functions with exponential backoff.
+    Useful for handling rate limiting (429) and transient errors.
+    
+    Args:
+        max_retries: Maximum number of retry attempts (total tries = max_retries + 1)
+        base_delay: Base delay in seconds (doubles each retry)
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except ResponseError as e:
+                    last_exception = e
+                    error_str = str(e)
+                    
+                    # Check if it's a rate limit error (429)
+                    if "[429]" in error_str or "rate" in error_str.lower():
+                        if attempt < max_retries:
+                            delay = base_delay * (2 ** attempt)  # Exponential backoff
+                            logger.warning(f"Rate limited (429), retrying in {delay}s... (attempt {attempt + 1}/{max_retries + 1})")
+                            time.sleep(delay)
+                            continue
+                    
+                    # For other errors, don't retry
+                    raise
+                except Exception as e:
+                    # For non-Amadeus errors, don't retry
+                    raise
+            
+            # If we exhausted all retries, raise the last exception
+            if last_exception:
+                raise last_exception
+        
+        return wrapper
+    return decorator
 
 # Initialize MCP server
 mcp = FastMCP(name="coastline-travel")
@@ -107,7 +156,11 @@ def search_flights(origin: str, destination: str, departure_date: str, return_da
         if return_date:
             params["returnDate"] = return_date
         
-        response = amadeus.shopping.flight_offers_search.get(**params)
+        @retry_with_backoff(max_retries=2, base_delay=1.0)
+        def _fetch_flights():
+            return amadeus.shopping.flight_offers_search.get(**params)
+        
+        response = _fetch_flights()
         
         if not response.data:
             logger.warning("No flights found in response")
@@ -208,10 +261,14 @@ def search_hotels(city_code: str, check_in_date: str, check_out_date: str) -> di
     nights = (check_out_dt - check_in_dt).days
     
     try:
-        # 1. Get hotels in city
-        hotels_resp = amadeus.reference_data.locations.hotels.by_city.get(
-            cityCode=city_code.upper()
-        )
+        # 1. Get hotels in city (with retry for rate limiting)
+        @retry_with_backoff(max_retries=2, base_delay=1.0)
+        def _fetch_hotels_by_city():
+            return amadeus.reference_data.locations.hotels.by_city.get(
+                cityCode=city_code.upper()
+            )
+        
+        hotels_resp = _fetch_hotels_by_city()
         
         if not hotels_resp.data:
             logger.warning("No hotels found in response")
@@ -376,18 +433,27 @@ def search_hotels(city_code: str, check_in_date: str, check_out_date: str) -> di
 @mcp.tool()
 def get_airport_code(city_name: str) -> dict:
     """Look up IATA codes for a city."""
-    try:
+    
+    @retry_with_backoff(max_retries=2, base_delay=1.0)
+    def _fetch_airport_code():
         from amadeus import Location
         response = amadeus.reference_data.locations.get(
             keyword=city_name, subType=Location.CITY
         )
-        if not response.data: return {"error": "City not found"}
+        if not response.data:
+            return {"error": "City not found"}
         
         loc = response.data[0]
         return {
             "name": loc.get("name"),
             "iata_code": loc.get("iataCode")
         }
+    
+    try:
+        return _fetch_airport_code()
+    except ResponseError as e:
+        logger.error(f"Amadeus API Error in get_airport_code: {e}")
+        return {"error": f"API Error: {str(e)}"}
     except Exception as e:
         return {"error": str(e)}
 
