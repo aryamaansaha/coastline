@@ -30,6 +30,7 @@ export const ActivityCard = ({
     <div 
       className={`${styles.card} ${isHighlighted ? styles.highlighted : ''}`}
       onClick={onCardClick}
+      data-activity-id={activity.id}
     >
       <div className={styles.timeCol}>{activity.time_slot}</div>
       <div className={styles.infoCol}>
