@@ -481,48 +481,37 @@ def _dict_to_itinerary(itinerary_dict: dict | None, budget_limit: float) -> Itin
     )
 
 
-async def _process_final_itinerary(
+def _save_itinerary_without_geocoding(
     itinerary_dict: dict,
     budget_limit: float,
     db
 ) -> Itinerary:
     """
-    Process final itinerary: geocode locations and save to DB.
+    Save itinerary immediately WITHOUT geocoding (for optimistic navigation).
+    Geocoding happens in background.
     """
-    from app.schemas.trip import Itinerary, Day, Activity, Location
+    from app.schemas.trip import Itinerary, Day, Activity, Location, GeocodingStatus
     import uuid
     
+    total_activities = 0
     days = []
+    
     for day_data in itinerary_dict.get("days", []):
         city = day_data.get("city", "")
         activities = []
         
         for act_data in day_data.get("activities", []):
+            total_activities += 1
             loc_data = act_data.get("location", {})
-            loc_name = loc_data.get("name", "")
-            loc_address = loc_data.get("address", "")
             
-            # Geocode
-            lat, lng = None, None
-            result = LocalizeService.geocode_nominatim(loc_address)
-            if result:
-                lat, lng = result
-            else:
-                # Fallback: try name + city
-                fallback = f"{loc_name}, {city}" if loc_name and city else None
-                if fallback:
-                    result = LocalizeService.geocode_nominatim(fallback)
-                    if result:
-                        lat, lng = result
-            
+            # Save WITHOUT geocoding - lat/lng will be None
             location = Location(
-                name=loc_name,
-                address=loc_address,
-                lat=lat,
-                lng=lng
+                name=loc_data.get("name", ""),
+                address=loc_data.get("address", ""),
+                lat=None,
+                lng=None
             )
             
-            # Keep time_slot as string (e.g., "08:31 AM")
             time_slot = act_data.get("time_slot", "09:00 AM")
             
             activities.append(Activity(
@@ -546,15 +535,131 @@ async def _process_final_itinerary(
             activities=activities
         ))
     
+    # Create itinerary with pending geocoding status
     itinerary = Itinerary(
         trip_id=str(uuid.uuid4()),
         trip_title=itinerary_dict.get("trip_title", "Your Trip"),
         days=days,
-        budget_limit=budget_limit
+        budget_limit=budget_limit,
+        geocoding_status=GeocodingStatus(
+            status="pending",
+            total_activities=total_activities,
+            geocoded_activities=0
+        )
     )
     
-    # Save to MongoDB
+    # Save to MongoDB immediately
     TripService.save_itinerary(db, itinerary)
+    
+    return itinerary
+
+
+async def _geocode_itinerary_background(trip_id: str, db):
+    """
+    Background task to geocode all activities in an itinerary.
+    Updates the trip in-place as geocoding progresses.
+    """
+    from app.schemas.trip import GeocodingStatus
+    import asyncio
+    
+    print(f"🌍 [Geocoding] Starting background geocoding for trip {trip_id}")
+    
+    # Update status to in_progress
+    db.itineraries.update_one(
+        {"trip_id": trip_id},
+        {"$set": {"geocoding_status.status": "in_progress"}}
+    )
+    
+    # Fetch the trip
+    trip_doc = db.itineraries.find_one({"trip_id": trip_id})
+    if not trip_doc:
+        print(f"❌ [Geocoding] Trip {trip_id} not found")
+        return
+    
+    geocoded_count = 0
+    total_count = trip_doc.get("geocoding_status", {}).get("total_activities", 0)
+    
+    try:
+        for day_idx, day in enumerate(trip_doc.get("days", [])):
+            city = day.get("city", "")
+            
+            for act_idx, activity in enumerate(day.get("activities", [])):
+                loc = activity.get("location", {})
+                loc_name = loc.get("name", "")
+                loc_address = loc.get("address", "")
+                
+                # Skip if already geocoded
+                if loc.get("lat") is not None and loc.get("lng") is not None:
+                    geocoded_count += 1
+                    continue
+                
+                # Try geocoding
+                lat, lng = None, None
+                result = LocalizeService.geocode_nominatim(loc_address)
+                if result:
+                    lat, lng = result
+                else:
+                    # Fallback: try name + city
+                    fallback = f"{loc_name}, {city}" if loc_name and city else None
+                    if fallback:
+                        result = LocalizeService.geocode_nominatim(fallback)
+                        if result:
+                            lat, lng = result
+                
+                # Update the activity's location in MongoDB
+                db.itineraries.update_one(
+                    {"trip_id": trip_id},
+                    {"$set": {
+                        f"days.{day_idx}.activities.{act_idx}.location.lat": lat,
+                        f"days.{day_idx}.activities.{act_idx}.location.lng": lng
+                    }}
+                )
+                
+                geocoded_count += 1
+                
+                # Update progress
+                db.itineraries.update_one(
+                    {"trip_id": trip_id},
+                    {"$set": {"geocoding_status.geocoded_activities": geocoded_count}}
+                )
+                
+                # Small delay to avoid rate limiting Nominatim
+                await asyncio.sleep(0.1)
+        
+        # Mark as complete
+        db.itineraries.update_one(
+            {"trip_id": trip_id},
+            {"$set": {
+                "geocoding_status.status": "complete",
+                "geocoding_status.geocoded_activities": geocoded_count
+            }}
+        )
+        print(f"✅ [Geocoding] Completed for trip {trip_id}: {geocoded_count}/{total_count} activities")
+        
+    except Exception as e:
+        print(f"❌ [Geocoding] Failed for trip {trip_id}: {e}")
+        db.itineraries.update_one(
+            {"trip_id": trip_id},
+            {"$set": {"geocoding_status.status": "failed"}}
+        )
+
+
+async def _process_final_itinerary(
+    itinerary_dict: dict,
+    budget_limit: float,
+    db
+) -> Itinerary:
+    """
+    Process final itinerary: save immediately, geocode in background.
+    Returns the itinerary immediately for optimistic navigation.
+    """
+    import asyncio
+    
+    # Save immediately without geocoding
+    itinerary = _save_itinerary_without_geocoding(itinerary_dict, budget_limit, db)
+    
+    # Spawn background geocoding task
+    asyncio.create_task(_geocode_itinerary_background(itinerary.trip_id, db))
     
     return itinerary
 

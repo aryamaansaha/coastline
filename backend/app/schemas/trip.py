@@ -102,11 +102,24 @@ class ItineraryLLMCreate(BaseModel):
     trip_title: str
     days: list[DayLLMCreate]
 
+# Geocoding status for optimistic navigation
+class GeocodingStatus(BaseModel):
+    """Status of background geocoding"""
+    status: Literal["pending", "in_progress", "complete", "failed"] = "pending"
+    total_activities: int = 0
+    geocoded_activities: int = 0
+    
+    @property
+    def is_complete(self) -> bool:
+        return self.status == "complete"
+
+
 # Final Itinerary object; part of the Itinerary object we want to persist
 class Itinerary(ItineraryLLMCreate):
     trip_id: str
     days: list[Day]
     budget_limit: float
+    geocoding_status: GeocodingStatus | None = None
 
 
 # ============================================================================
