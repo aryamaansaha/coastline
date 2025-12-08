@@ -2,28 +2,50 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, MapPin, Wallet, ChevronRight, Trash2 } from 'lucide-react';
 import { useTrips, type TripSummary } from '../hooks/useApi';
+import { ConfirmModal } from '../components/ConfirmModal';
 import styles from './TripsListPage.module.css';
 
 export const TripsListPage = () => {
   const navigate = useNavigate();
   const { listTrips, deleteTrip, loading } = useTrips();
   const [trips, setTrips] = useState<TripSummary[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     listTrips().then(setTrips);
   }, [listTrips]);
 
-  const handleDelete = async (e: React.MouseEvent, tripId: string, tripTitle: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, tripId: string, tripTitle: string) => {
     e.stopPropagation(); // Prevent card click navigation
-    if (confirm(`Are you sure you want to delete "${tripTitle}"? This cannot be undone.`)) {
-      const success = await deleteTrip(tripId);
-      if (success) {
-        // Remove from local state
-        setTrips(prev => prev.filter(t => t.trip_id !== tripId));
-      } else {
-        alert('Failed to delete trip. Please try again.');
-      }
+    setDeleteModal({ tripId, tripTitle });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal) return;
+    
+    // If it's an error modal, just close it
+    if (deleteModal.isError) {
+      setDeleteModal(null);
+      return;
     }
+    
+    setIsDeleting(true);
+    const success = await deleteTrip(deleteModal.tripId);
+    setIsDeleting(false);
+    
+    if (success) {
+      // Remove from local state
+      setTrips(prev => prev.filter(t => t.trip_id !== deleteModal.tripId));
+      setDeleteModal(null);
+    } else {
+      // Show error state in modal
+      setDeleteModal({ ...deleteModal, isError: true });
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModal(null);
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -79,7 +101,7 @@ export const TripsListPage = () => {
                 <div className={styles.cardActions}>
                   <button
                     className={styles.deleteBtn}
-                    onClick={(e) => handleDelete(e, trip.trip_id, trip.trip_title)}
+                    onClick={(e) => handleDeleteClick(e, trip.trip_id, trip.trip_title)}
                     title="Delete trip"
                   >
                     <Trash2 size={16} />
@@ -111,6 +133,23 @@ export const TripsListPage = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {deleteModal && (
+        <ConfirmModal
+          isOpen={true}
+          title={deleteModal.isError ? "Delete Failed" : "Delete Trip?"}
+          message={
+            deleteModal.isError
+              ? "Failed to delete trip. Please try again."
+              : `Are you sure you want to delete "${deleteModal.tripTitle}"? This action cannot be undone.`
+          }
+          confirmLabel={deleteModal.isError ? "OK" : "Delete"}
+          cancelLabel={deleteModal.isError ? undefined : "Cancel"}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          variant={deleteModal.isError ? "warning" : "danger"}
+        />
       )}
     </div>
   );
