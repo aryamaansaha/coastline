@@ -30,6 +30,9 @@ Create `.env` file in the `backend/` directory:
 **Note:** The `.env` file should be located in the `backend/` folder. The `load_dotenv()` function will automatically find it when the FastAPI app starts.
 
 ```bash
+# Backend Configuration
+BACKEND_PORT=8008            # Port for FastAPI server (default: 8008)
+
 # Database
 MONGODB_URI=mongodb://localhost:27017/
 
@@ -54,18 +57,24 @@ GOOGLE_API_KEY=your_key
 ## Running the Server
 
 ```bash
-# Start FastAPI server
-uvicorn app.main:app --reload --port 8000
+# Start FastAPI server (uses BACKEND_PORT from .env, defaults to 8008)
+uvicorn app.main:app --reload --port ${BACKEND_PORT:-8008}
+
+# Or set the port explicitly
+BACKEND_PORT=8008 uvicorn app.main:app --reload --port 8008
 ```
 
-Server runs at `http://localhost:8000`
+**Note:** 
+- The frontend Vite proxy and test scripts will automatically use the `BACKEND_PORT` environment variable
+- Make sure to set `BACKEND_PORT` in your `.env` file or export it before running the frontend or tests
+- For the frontend, you can also set it when running: `BACKEND_PORT=8008 npm run dev`
 
 ## Testing the API
 
 ### Generate a Trip
 
 ```bash
-curl -X POST http://localhost:8000/api/trip/generate/stream \
+curl -X POST http://localhost:8008/api/trip/generate/stream \
   -H "Content-Type: application/json" \
   -d '{
     "destinations": ["Paris"],
@@ -92,13 +101,13 @@ This provides a CLI interface to:
 ### List Trips
 
 ```bash
-curl http://localhost:8000/api/trips
+curl http://localhost:8008/api/trips
 ```
 
 ### Get Trip Details
 
 ```bash
-curl http://localhost:8000/api/trip/{trip_id}
+curl http://localhost:8008/api/trip/{trip_id}
 ```
 
 ## Project Structure

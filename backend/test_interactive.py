@@ -6,9 +6,16 @@ Interactive HITL Test - YOU control the decisions!
 import asyncio
 import httpx
 import json
+import os
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-BASE_URL = "http://127.0.0.1:8008"
+# Load environment variables
+load_dotenv()
+
+# Get backend port from environment variable, default to 8008
+BACKEND_PORT = os.getenv("BACKEND_PORT", "8008")
+BASE_URL = f"http://127.0.0.1:{BACKEND_PORT}"
 
 
 def parse_sse_events(buffer: str) -> list:

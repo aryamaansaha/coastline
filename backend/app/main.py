@@ -36,12 +36,14 @@ def startup_event():
 
 @app.get("/")
 def read_root():
+    backend_port = os.getenv("BACKEND_PORT", "8008")
     return {
         "message": "Coastline API - AI Travel Planner",
         "version": "0.1.0",
         "docs": "/docs",
-        "run_hint": "To run on port 8008, start with: uvicorn app.main:app --reload --port 8008"
+        "run_hint": f"To run on port {backend_port}, start with: uvicorn app.main:app --reload --port {backend_port}"
     }
 
-# Hint: Run your server on port 8008 with:
-# uvicorn app.main:app --reload --port 8008
+# Hint: Run your server with:
+# uvicorn app.main:app --reload --port ${BACKEND_PORT:-8008}
+# Or set BACKEND_PORT environment variable (defaults to 8008)
