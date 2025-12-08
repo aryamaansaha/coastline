@@ -58,35 +58,35 @@ Output your answer in a JSON array.
 ```
 """
 
-SHOPPING_PROMPT = """
-Give me a list of shopping areas, markets, and stores (max 15 minutes walk) near here. 
-Output your answer in a JSON array.
+# SHOPPING_PROMPT = """
+# Give me a list of shopping areas, markets, and stores (max 15 minutes walk) near here. 
+# Output your answer in a JSON array.
 
-```json
-[{
-    "name": "Store/Market Name",
-    "address": "Address",
-    "rating": 4.5,
-    "price_range": "$$",
-    "google_maps_url": "Google Maps URL"
-}]
-```
-"""
+# ```json
+# [{
+#     "name": "Store/Market Name",
+#     "address": "Address",
+#     "rating": 4.5,
+#     "price_range": "$$",
+#     "google_maps_url": "Google Maps URL"
+# }]
+# ```
+# """
 
-ATTRACTION_PROMPT = """
-Give me a list of tourist attractions, museums, and landmarks (max 15 minutes walk) near here. 
-Output your answer in a JSON array.
+# ATTRACTION_PROMPT = """
+# Give me a list of tourist attractions, museums, and landmarks (max 15 minutes walk) near here. 
+# Output your answer in a JSON array.
 
-```json
-[{
-    "name": "Attraction Name",
-    "address": "Address",
-    "rating": 4.5,
-    "price_range": "$",
-    "google_maps_url": "Google Maps URL"
-}]
-```
-"""
+# ```json
+# [{
+#     "name": "Attraction Name",
+#     "address": "Address",
+#     "rating": 4.5,
+#     "price_range": "$",
+#     "google_maps_url": "Google Maps URL"
+# }]
+# ```
+# """
 
 # Map discovery types to prompts
 PROMPT_MAP = {
@@ -94,8 +94,8 @@ PROMPT_MAP = {
     "bar": BAR_PROMPT,
     "cafe": CAFE_PROMPT,
     "club": CLUB_PROMPT,
-    "shopping": SHOPPING_PROMPT,
-    "attraction": ATTRACTION_PROMPT,
+    # "shopping": SHOPPING_PROMPT,
+    # "attraction": ATTRACTION_PROMPT,
 }
 
 # Legacy alias for backward compatibility
@@ -111,21 +111,27 @@ AGENT_PLANNER_SYSTEM_PROMPT = """You are Coastline, an expert AI travel planner.
 # Your Task
 Create a detailed multi-city itinerary based on the user's preferences.
 
+# Planning Workflow
+1. You propose an itinerary with costs
+2. An auditor validates the total cost and budget compliance
+3. If issues are found, you'll receive feedback and revise
+4. The user may also provide feedback for revisions
+
 # Preferences (Structured Input)
 You will receive the user's preferences as a JSON object with:
-- destinations: List of cities to visit (in order or you decide the order)
+- destinations: List of cities to visit
 - start_date: Trip start date (YYYY-MM-DD)
 - end_date: Trip end date (YYYY-MM-DD)
 - budget_limit: Maximum budget in USD
-- origin: Starting location (if provided)
+- origin: Starting location
 
 # Multi-City Planning
 When planning trips to multiple cities:
-1. Determine optimal order if not specified
+1. Determine optimal order of cities to visit
 2. Search for flights between each city segment:
    - Use round-trip for single-city trips (origin → destination → origin)
    - Use one-way flights for multi-city trips (NYC → London, London → Paris, Paris → NYC)
-3. Allocate days per city based on total duration
+3. Allocate days per city based on total duration of the trip
 4. Find hotels in each city with exact check-in/check-out dates
    - Hotels return TOTAL price for the stay (not per night)
    - Use the trip dates to determine check-in and check-out
@@ -140,9 +146,54 @@ When planning trips to multiple cities:
   * Returns total price for entire stay (not per night)
 - get_airport_code(city_name): Look up IATA codes
 
+# Activity Types
+- "flight": Flight between cities
+- "hotel": Hotel stay in a city
+- "activity": Activity in a city
+
+# Instructions for Choosing Activities
+- Pay close attention to the user's preferences and budget, if there the user has 
+  inclinations towards certain activities, try to fit them into the itinerary.
+- Try to suggest activities that are popular in the city and worth doing. 
+  Prioritize based on the total time that will be spent in the city.
+- Provide reasonable estimates for activity cost based on your knowledge of the city and the activity.
+- Remember that activities must include the exact location address, so if you want to suggest activities
+  that are far apart, they must not be aggregated into a single activity.
+- You MUST not include eating activities in the itinerary. Notice that there is no food category for the 
+  activities. That is by design. You can only include activities that are not related to eating.
+- Avoid suggesting trivial activities like "get to the airport", "get off the plane" - these are fairly obvious and don't constitute activities.
+- Avoid too many activities right before the return flight, it's better to have some breathing time before the flight.
+- Pay close attention the feedback from the user, if the user mentions the pace at which 
+  they want to do activities, and the kind of activities they want to do, try to take that into account. 
+  You don't have to forcefully fit every preference into the itinerary, but use your best judgement.
+
+# Activity Timing
+- Space activities reasonably (allow 2-3 hours for museums, 1 hour for quick stops)
+- Account for travel time between locations
+- Avoid back-to-back activities that are far apart
+
+# Location Format Rules
+- location.name: MUST be a simple, searchable place name (e.g., "Big Ben", "Louvre Museum")
+- location.address: MUST be a complete street address or landmark address
+- Do NOT include:
+  * Parenthetical descriptions in names
+  * Multiple place names separated by "or", "and", "/"
+  * Action prefixes like "Check-in at", "Visit", "Walk to"
+  * Time/scheduling info ("Optional Evening:", etc.)
+
+  GOOD examples:
+  - name: "Big Ben", address: "Westminster, London SW1A 0AA, UK"
+  - name: "Louvre Museum", address: "Rue de Rivoli, 75001 Paris, France"
+
+  BAD examples:
+  - name: "Westminster Walk (Big Ben, Parliament)" ❌
+  - name: "Churchill War Rooms or National Gallery" ❌
+  - name: "Optional: West End Theatre" ❌
+
 # Important Rules
 1. **Current Date**: {current_date}
-2. **Do NOT calculate costs yourself** - An auditor will validate costs after you finish
+2. ** Do not attempt to sum up costs between activities.** An auditor will take care of this. 
+Your job is to provide reasonable estimates for activity cost. For flights and hotels, the tool will give the exact cost.
 3. **Always search for inter-city flights** (e.g., London → Paris)
 4. **Be realistic about days per city** (don't rush, allow travel time)
 5. **Include return flight** to origin
@@ -170,7 +221,7 @@ When you've completed planning, respond with ONLY a JSON object (no additional t
             "address": "Longford TW6, UK"
           }},
           "estimated_cost": 650.00,
-          "price_suggestion": "Book 2-3 months in advance for best rates",
+          "price_suggestion": "Book in advance for best rates",
           "currency": "USD"
         }},
         {{
@@ -210,9 +261,6 @@ When you've completed planning, respond with ONLY a JSON object (no additional t
 # Critical Instructions
 - Output ONLY the JSON, no preamble or explanation
 - Each activity MUST have all fields (type, time_slot, title, description, etc.)
-- Use "activity" type for sightseeing, museums, etc.
-- Use "activity" type for restaurants, meals, and any other activities
-- Include estimated_cost for all items (use tool results)
 """
 
 
@@ -259,10 +307,10 @@ def format_budget_alert(total_cost: float, budget_limit: float) -> str:
 You are ${over_by:.2f} over budget.
 
 Please revise the plan to fit within budget by:
-- Choosing cheaper flights/hotels from the tool results
-- Reducing paid activities
-- Shortening the trip duration
-- Or suggesting a budget increase to the user
+- Seeing if you can choose cheaper flights/hotels from the tool results. 
+  Do not skip any flights/hotels just to save price, that does not make sense. 
+  The user cannot be homeless in the city if they need to spend the night there.
+- Reducing paid activities. Try to respect the user's preferences and feedback as best you can, even during adjustments.
 """
 
 
