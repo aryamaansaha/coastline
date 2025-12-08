@@ -12,10 +12,10 @@ The trip planning agent uses LangGraph to orchestrate a multi-step workflow with
 flowchart TD
     START([Start]) --> Planner
     
-    Planner[🧠 Planner Node]
-    Tools[🔧 Tool Executor]
-    Auditor[📊 Auditor Node]
-    Review[👤 Human Review]
+    Planner[Planner Node]
+    Tools[Tool Executor]
+    Auditor[Auditor Node]
+    Review[Human Review]
     END([End])
     
     Planner -->|"tool_calls"| Tools
