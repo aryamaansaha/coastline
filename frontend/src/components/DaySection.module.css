@@ -1,0 +1,27 @@
+.section {
+  margin-bottom: 32px;
+}
+
+.header {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.theme {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.activities {
+  display: flex;
+  flex-direction: column;
+}
+
