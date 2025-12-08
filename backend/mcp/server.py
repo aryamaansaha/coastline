@@ -135,7 +135,9 @@ def search_flights(origin: str, destination: str, departure_date: str, return_da
         return_date: (Optional) Return date for round-trip in YYYY-MM-DD format
     
     Returns:
-        Dict with 'flights' list or 'error' message
+        Dict with 'flights' list or 'error' message.
+        IMPORTANT: When return_date is provided, the 'price' field is the TOTAL round-trip price
+        (not per leg). When return_date is omitted, the 'price' is for one-way only.
     """
     trip_type = "round-trip" if return_date else "one-way"
     logger.info(f"Searching {trip_type} flights: {origin} -> {destination} departing {departure_date}")

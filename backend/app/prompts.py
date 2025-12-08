@@ -140,7 +140,10 @@ When planning trips to multiple cities:
 # Available Tools
 - search_flights(origin, destination, departure_date, return_date=None): Find one-way or round-trip flights
   * For round-trip: Include return_date parameter
+    ** CRITICAL: When return_date is provided, the price returned is the TOTAL round-trip price (not per leg)
+    ** Do NOT double the price - use it as-is for the entire round-trip flight
   * For one-way: Omit return_date
+    ** The price returned is for the one-way flight only
 - search_hotels(city_code, check_in_date, check_out_date): Find hotels with total stay pricing
   * MUST include check_in and check_out dates
   * Returns total price for entire stay (not per night)
