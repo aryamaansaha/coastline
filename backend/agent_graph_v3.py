@@ -461,15 +461,19 @@ def build_agent_graph(checkpointer, langchain_tools, debug=False):
         Compiled StateGraph
     """
     # Setup LLM
-    # Get LLM from provider wrapper (configurable via LLM_PROVIDER, LLM_MODEL env vars)
+    # Get LLM from provider wrapper (configurable via LLM_PROVIDER, LLM_MODEL, LLM_TEMPERATURE env vars)
     from app.services.llm import get_llm, get_llm_config
     
-    llm = get_llm(provider="openai", model="gpt-5.1", temperature=0)
+    # Use environment variables - no hardcoded values
+    llm = get_llm()
     llm_with_tools = llm.bind_tools(langchain_tools)
     
+    # Always print LLM configuration (useful for debugging and monitoring)
+    config = get_llm_config()
+    print(f"🤖 LLM Configuration: {config['provider']}/{config['model']} (temperature={config['temperature']})")
+    
     if debug:
-        config = get_llm_config()
-        print(f"🤖 LLM: {config['provider']}/{config['model']} (temp={config['temperature']})")
+        print(f"🔍 Debug mode enabled")
     
     # Create nodes
     planner_node = create_planner_node(llm_with_tools, debug=debug)

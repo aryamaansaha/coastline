@@ -11,7 +11,9 @@ Configuration via environment variables:
 import os
 from typing import Literal
 from langchain_core.language_models.chat_models import BaseChatModel
+from dotenv import load_dotenv
 
+load_dotenv()
 
 # Type aliases
 Provider = Literal["openai", "anthropic", "google"]
@@ -19,7 +21,7 @@ Provider = Literal["openai", "anthropic", "google"]
 # Default models per provider
 DEFAULT_MODELS = {
     "openai": "gpt-5.1",
-    "anthropic": "claude-sonnet-4-5",
+    "anthropic": "claude-sonnet-4-5", "claude-opus-4.5"
     "google": "gemini-2.5-pro",
 }
 

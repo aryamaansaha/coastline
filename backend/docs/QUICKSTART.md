@@ -25,7 +25,9 @@ pip install -r requirements.txt
 
 ## Environment Setup
 
-Create `.env` file:
+Create `.env` file in the `backend/` directory:
+
+**Note:** The `.env` file should be located in the `backend/` folder. The `load_dotenv()` function will automatically find it when the FastAPI app starts.
 
 ```bash
 # Database
