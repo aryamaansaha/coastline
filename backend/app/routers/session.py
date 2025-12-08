@@ -174,8 +174,9 @@ async def generate_trip_stream(
                             CostBreakdown(**event_data.get("cost_breakdown", {}))
                         )
                         
-                        # Update event data with processed itinerary
+                        # Update event data with processed itinerary and trip_id
                         event_data["itinerary"] = itinerary.model_dump()
+                        event_data["trip_id"] = itinerary.trip_id  # For frontend navigation
                 
                 elif event_type == "error":
                     SessionService.update_session_status(
