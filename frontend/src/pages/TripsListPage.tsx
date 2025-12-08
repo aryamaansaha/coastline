@@ -5,34 +5,37 @@ import { useTrips, type TripSummary } from '../hooks/useApi';
 import { useTrip } from '../context/TripContext';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { Logo } from '../components/Logo';
-import { sessionStorage } from '../utils/sessionStorage';
 import styles from './TripsListPage.module.css';
 
 export const TripsListPage = () => {
   const navigate = useNavigate();
   const { listTrips, deleteTrip, loading } = useTrips();
-  const { activeSession, hasActiveSession, resetTrip } = useTrip();
+  const { activeSession, clearActiveSession } = useTrip();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState('');
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
     listTrips().then(setTrips);
   }, [listTrips]);
 
-  // Update elapsed time for in-progress card
+  // Update elapsed time for in-progress trip
   useEffect(() => {
-    if (!activeSession?.startedAt) return;
-    
-    const update = () => {
-      setElapsedTime(sessionStorage.getElapsedTime(activeSession.startedAt));
+    if (!activeSession) {
+      setElapsedTime(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      const elapsed = Math.floor((Date.now() - activeSession.startedAt) / 1000);
+      setElapsedTime(elapsed);
     };
-    
-    update();
-    const interval = setInterval(update, 1000);
+
+    updateElapsed(); // Initial update
+    const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [activeSession?.startedAt]);
+  }, [activeSession]);
 
   const handleDeleteClick = (e: React.MouseEvent, tripId: string, tripTitle: string) => {
     e.stopPropagation(); // Prevent card click navigation
@@ -66,10 +69,11 @@ export const TripsListPage = () => {
     setDeleteModal(null);
   };
 
-  const handleCancelGeneration = (e: React.MouseEvent) => {
+  const handleCancelInProgress = (e: React.MouseEvent) => {
     e.stopPropagation();
-    sessionStorage.clear();
-    resetTrip();
+    if (confirm('Cancel this trip generation? Any progress will be lost.')) {
+      clearActiveSession();
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -81,13 +85,10 @@ export const TripsListPage = () => {
     });
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'generating': return 'AI is planning...';
-      case 'awaiting_approval': return 'Ready for review';
-      case 'finalizing': return 'Finalizing trip...';
-      default: return 'Processing...';
-    }
+  const formatElapsedTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
   return (
@@ -100,58 +101,28 @@ export const TripsListPage = () => {
         <div>
           <h1 className={styles.title}>Your Trips</h1>
           <p className={styles.subtitle}>
-            {trips.length === 0 
+            {trips.length === 0 && !activeSession
               ? 'No trips yet. Start planning your first adventure!'
-              : `${trips.length} trip${trips.length > 1 ? 's' : ''} planned`
+              : `${trips.length} trip${trips.length !== 1 ? 's' : ''} planned`
             }
           </p>
         </div>
-        <button className={styles.newTripBtn} onClick={() => navigate('/new')}>
+        <button 
+          className={styles.newTripBtn} 
+          onClick={() => navigate('/new')}
+          disabled={!!activeSession}
+          title={activeSession ? 'A trip is already being generated' : 'Create a new trip'}
+        >
           <Plus size={18} /> New Trip
         </button>
       </div>
 
-      {/* In-Progress Banner */}
-      {hasActiveSession && activeSession && (
-        <div 
-          className={styles.inProgressCard}
-          onClick={() => navigate('/new')}
-        >
-          <div className={styles.inProgressIcon}>
-            <Loader size={24} className={styles.spinningLoader} />
-          </div>
-          <div className={styles.inProgressContent}>
-            <div className={styles.inProgressHeader}>
-              <span className={styles.inProgressTitle}>{activeSession.tripTitle}</span>
-              <span className={styles.inProgressStatus}>
-                {getStatusText(activeSession.status)}
-              </span>
-            </div>
-            <div className={styles.inProgressMeta}>
-              <span>Budget: ${activeSession.preferences.budget_limit.toLocaleString()}</span>
-              <span>•</span>
-              <span>{elapsedTime} elapsed</span>
-            </div>
-          </div>
-          <div className={styles.inProgressActions}>
-            <button 
-              className={styles.cancelBtn}
-              onClick={handleCancelGeneration}
-              title="Cancel generation"
-            >
-              <X size={16} />
-            </button>
-            <ChevronRight size={20} className={styles.arrow} />
-          </div>
-        </div>
-      )}
-
-      {loading ? (
+      {loading && !activeSession ? (
         <div className={styles.loading}>
           <div className={styles.spinner} />
           <p>Loading trips...</p>
         </div>
-      ) : trips.length === 0 && !hasActiveSession ? (
+      ) : trips.length === 0 && !activeSession ? (
         <div className={styles.empty}>
           <div className={styles.emptyIcon}>🌴</div>
           <h3>No trips yet</h3>
@@ -162,6 +133,56 @@ export const TripsListPage = () => {
         </div>
       ) : (
         <div className={styles.grid}>
+          {/* In-Progress Card */}
+          {activeSession && (
+            <div 
+              className={`${styles.card} ${styles.inProgressCard}`}
+              onClick={() => navigate('/new?resume=true')}
+            >
+              <div className={styles.cardHeader}>
+                <h3>{activeSession.tripTitle || 'Trip in progress...'}</h3>
+                <div className={styles.cardActions}>
+                  <button
+                    className={styles.cancelBtn}
+                    onClick={handleCancelInProgress}
+                    title="Cancel generation"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className={styles.inProgressContent}>
+                <div className={styles.inProgressStatus}>
+                  <Loader size={16} className={styles.spinnerInline} />
+                  <span>Generating your trip...</span>
+                </div>
+                <div className={styles.inProgressMeta}>
+                  <span className={styles.metaItem}>
+                    <MapPin size={14} />
+                    {activeSession.preferences.destinations.join(' → ')}
+                  </span>
+                  <span className={styles.metaItem}>
+                    <Calendar size={14} />
+                    {activeSession.preferences.trip_length} days
+                  </span>
+                  <span className={styles.metaItem}>
+                    <Wallet size={14} />
+                    ${activeSession.preferences.budget_limit.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className={styles.cardFooter}>
+                <span className={styles.elapsedTime}>
+                  ⏱️ {formatElapsedTime(elapsedTime)}
+                </span>
+                <span className={styles.viewProgress}>View Progress →</span>
+              </div>
+            </div>
+          )}
+
+          {/* Regular Trip Cards */}
           {trips.map(trip => (
             <div 
               key={trip.trip_id} 

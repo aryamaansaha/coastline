@@ -1,37 +1,10 @@
 .container {
-  min-height: 100vh;
-  background: var(--bg);
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-}
-
-.backBtn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-  width: fit-content;
-}
-
-.backBtn:hover {
-  background: white;
-  color: var(--text);
-}
-
-.content {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: 100vh;
+  background: var(--bg);
   padding: 40px;
 }
 
@@ -101,30 +74,24 @@
   margin-right: 8px;
 }
 
-.meta {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.elapsed {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text);
-}
-
 .hint {
+  margin-top: 24px;
   font-size: 14px;
   color: var(--text-muted);
 }
 
-.actions {
-  margin-top: 24px;
+.navHint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #22c55e;
+  background: #f0fdf4;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
 }
 
 .cancelBtn {
+  margin-top: 16px;
   padding: 10px 24px;
   background: transparent;
   border: 1px solid var(--border);
@@ -137,16 +104,5 @@
 
 .cancelBtn:hover {
   background: white;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.navHint {
-  margin-top: 32px;
-  font-size: 13px;
-  color: var(--text-muted);
-  background: #f0f9ff;
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: 1px solid #bae6fd;
+  color: var(--text);
 }

@@ -1,9 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useTripStream } from '../hooks/useTripStream';
-import { sessionStorage } from '../utils/sessionStorage';
 import styles from './LoadingPage.module.css';
 
 export const LoadingPage = () => {
@@ -12,51 +11,90 @@ export const LoadingPage = () => {
     streamStatus, 
     resetTrip, 
     sessionId, 
-    activeSession, 
-    startedAt,
-    isStreaming 
+    activeSession,
+    setPreview,
+    setFinalTripId,
+    setStreamError,
+    clearActiveSession,
+    setIsStreaming,
+    setStreamStatus
   } = useTrip();
-  const { cancelStream, reconnectSession } = useTripStream();
-  const [elapsedTime, setElapsedTime] = useState('');
-  const hasAttemptedReconnect = useRef(false);
+  const { cancelStream } = useTripStream();
+  const pollingRef = useRef<number | null>(null);
 
-  // Attempt to reconnect if we have a saved session but not streaming
+  // Poll for status updates when we have an active session but might not have SSE
+  // This handles the case where user navigated away and came back
   useEffect(() => {
-    if (!hasAttemptedReconnect.current && activeSession && !isStreaming) {
-      hasAttemptedReconnect.current = true;
-      console.log('Attempting to reconnect to session:', activeSession.sessionId);
-      
-      if (activeSession.sessionId) {
-        reconnectSession(
-          activeSession.sessionId, 
-          activeSession.preferences, 
-          activeSession.startedAt
-        );
+    // Only poll if we have a session ID and it's not 'pending'
+    const effectiveSessionId = sessionId || (activeSession?.sessionId !== 'pending' ? activeSession?.sessionId : null);
+    
+    if (!effectiveSessionId) return;
+
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`/api/trip/session/${effectiveSessionId}/status`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            // Session expired
+            setStreamError('Session expired. Please start a new trip.');
+            clearActiveSession();
+            setIsStreaming(false);
+            return;
+          }
+          throw new Error('Failed to fetch status');
+        }
+
+        const status = await res.json();
+        
+        // Update status message
+        if (status.status === 'processing') {
+          setStreamStatus('Trip generation in progress...');
+        }
+
+        // Check for completion or review
+        if (status.status === 'awaiting_approval' && status.preview) {
+          setPreview(status.preview);
+          setIsStreaming(false);
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        } else if (status.status === 'complete' && status.final_itinerary) {
+          setFinalTripId(status.final_itinerary.trip_id);
+          clearActiveSession();
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        } else if (status.status === 'failed') {
+          setStreamError(status.error_message || 'Trip generation failed');
+          clearActiveSession();
+          setIsStreaming(false);
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
+      } catch (err) {
+        console.error('Status poll failed:', err);
       }
-    }
-  }, [activeSession, isStreaming, reconnectSession]);
-
-  // Update elapsed time
-  useEffect(() => {
-    const effectiveStartedAt = startedAt || activeSession?.startedAt;
-    if (!effectiveStartedAt) return;
-    
-    const update = () => {
-      setElapsedTime(sessionStorage.getElapsedTime(effectiveStartedAt));
     };
-    
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [startedAt, activeSession?.startedAt]);
+
+    // Poll every 3 seconds
+    pollingRef.current = window.setInterval(pollStatus, 3000);
+    // Also poll immediately
+    pollStatus();
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [sessionId, activeSession, setPreview, setFinalTripId, setStreamError, clearActiveSession, setIsStreaming, setStreamStatus]);
 
   const handleCancel = async () => {
+    // Stop polling
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+    
     // Abort any active SSE connection
     cancelStream();
     
     // Delete backend session if it exists
     const effectiveSessionId = sessionId || activeSession?.sessionId;
-    if (effectiveSessionId) {
+    if (effectiveSessionId && effectiveSessionId !== 'pending') {
       try {
         await fetch(`/api/trip/session/${effectiveSessionId}`, { method: 'DELETE' });
       } catch (err) {
@@ -64,57 +102,41 @@ export const LoadingPage = () => {
       }
     }
     
+    // Clear active session from localStorage
+    clearActiveSession();
+    
     // Clear frontend state and navigate away
-    sessionStorage.clear();
     resetTrip();
-    navigate('/');
-  };
-
-  const handleBackToTrips = () => {
-    // Don't cancel - just navigate away
-    // The session continues in the background
     navigate('/');
   };
 
   return (
     <div className={styles.container}>
-      <button className={styles.backBtn} onClick={handleBackToTrips}>
-        <ArrowLeft size={18} /> Back to My Trips
-      </button>
-
-      <div className={styles.content}>
-        <RefreshCw size={40} className={styles.spinner} />
-        <h2 className={styles.title}>Designing your trip...</h2>
-        
-        <div className={styles.terminal}>
-          <div className={styles.terminalHeader}>
-            <span className={styles.dot} />
-            <span className={styles.dot} />
-            <span className={styles.dot} />
-          </div>
-          <div className={styles.terminalBody}>
-            <div className={styles.line}>
-              <span className={styles.prompt}>{'>'}</span>
-              {streamStatus || 'Initializing agent...'}
-            </div>
+      <RefreshCw size={40} className={styles.spinner} />
+      <h2 className={styles.title}>Designing your trip...</h2>
+      
+      <div className={styles.terminal}>
+        <div className={styles.terminalHeader}>
+          <span className={styles.dot} />
+          <span className={styles.dot} />
+          <span className={styles.dot} />
+        </div>
+        <div className={styles.terminalBody}>
+          <div className={styles.line}>
+            <span className={styles.prompt}>{'>'}</span>
+            {streamStatus || 'Initializing agent...'}
           </div>
         </div>
-
-        <div className={styles.meta}>
-          {elapsedTime && <span className={styles.elapsed}>{elapsedTime} elapsed</span>}
-          <span className={styles.hint}>This usually takes 60-90 seconds</span>
-        </div>
-        
-        <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={handleCancel}>
-            Cancel Generation
-          </button>
-        </div>
-
-        <p className={styles.navHint}>
-          💡 You can navigate away - your trip will continue generating in the background
-        </p>
       </div>
+
+      <p className={styles.hint}>This usually takes 30-60 seconds</p>
+      <p className={styles.navHint}>
+        Feel free to navigate away. Your trip will keep generating in the background.
+      </p>
+      
+      <button className={styles.cancelBtn} onClick={handleCancel}>
+        Cancel
+      </button>
     </div>
   );
 };

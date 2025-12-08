@@ -1,6 +1,15 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { TripPreferences, TripPreview } from '../types';
-import { sessionStorage, type ActiveSession } from '../utils/sessionStorage';
+
+const ACTIVE_SESSION_KEY = 'coastline_active_session';
+
+// Data persisted to localStorage for in-progress trips
+export interface ActiveSession {
+  sessionId: string;
+  preferences: TripPreferences;
+  startedAt: number; // timestamp
+  tripTitle?: string; // Set once we get first preview
+}
 
 interface TripContextType {
   preferences: TripPreferences | null;
@@ -25,14 +34,12 @@ interface TripContextType {
   finalTripId: string | null;
   setFinalTripId: (id: string | null) => void;
 
-  // Session persistence
-  startedAt: number | null;
-  setStartedAt: (time: number | null) => void;
+  // Active Session Persistence
   activeSession: ActiveSession | null;
-  hasActiveSession: boolean;
-  
+  saveActiveSession: (session: ActiveSession) => void;
+  clearActiveSession: () => void;
+
   resetTrip: () => void;
-  restoreSession: () => ActiveSession | null;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -45,46 +52,39 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [preview, setPreview] = useState<TripPreview | null>(null);
   const [finalTripId, setFinalTripId] = useState<string | null>(null);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
 
-  // Check for existing session on mount
+  // Load active session from localStorage on mount
   useEffect(() => {
-    const saved = sessionStorage.get();
-    if (saved) {
-      console.log('[TripContext] Found saved session:', saved);
-      setActiveSession(saved);
+    try {
+      const stored = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (stored) {
+        const session = JSON.parse(stored) as ActiveSession;
+        // Only restore if less than 24 hours old
+        const age = Date.now() - session.startedAt;
+        if (age < 24 * 60 * 60 * 1000) {
+          setActiveSession(session);
+        } else {
+          localStorage.removeItem(ACTIVE_SESSION_KEY);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load active session:', e);
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
     }
   }, []);
 
-  // Update activeSession state whenever relevant state changes
-  // Note: sessionId might be empty string initially, so we check preferences && startedAt
-  useEffect(() => {
-    if (preferences && startedAt) {
-      const session: ActiveSession = {
-        sessionId: sessionId || '', // Might be empty initially
-        preferences,
-        startedAt,
-        status: preview ? 'awaiting_approval' : (isStreaming ? 'generating' : 'finalizing'),
-        tripTitle: `${preferences.destinations.join(' → ')} Trip`
-      };
-      setActiveSession(session);
-      sessionStorage.save(session);
-      console.log('[TripContext] Saved session:', session);
-    }
-  }, [sessionId, preferences, startedAt, isStreaming, preview]);
+  const saveActiveSession = (session: ActiveSession) => {
+    setActiveSession(session);
+    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+  };
 
-  // Clear session when trip completes or errors
-  useEffect(() => {
-    if (finalTripId || streamError) {
-      console.log('[TripContext] Clearing session - finalTripId:', finalTripId, 'error:', streamError);
-      sessionStorage.clear();
-      setActiveSession(null);
-    }
-  }, [finalTripId, streamError]);
+  const clearActiveSession = () => {
+    setActiveSession(null);
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+  };
 
   const resetTrip = () => {
-    console.log('[TripContext] Resetting trip');
     setPreferences(null);
     setSessionId(null);
     setIsStreaming(false);
@@ -92,27 +92,8 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
     setStreamError(null);
     setPreview(null);
     setFinalTripId(null);
-    setStartedAt(null);
-    setActiveSession(null);
-    sessionStorage.clear();
+    // Note: Don't clear activeSession here - that's managed separately
   };
-
-  const restoreSession = (): ActiveSession | null => {
-    const saved = sessionStorage.get();
-    if (saved) {
-      console.log('[TripContext] Restoring session:', saved);
-      setPreferences(saved.preferences);
-      setSessionId(saved.sessionId || null);
-      setStartedAt(saved.startedAt);
-      setActiveSession(saved);
-      return saved;
-    }
-    return null;
-  };
-
-  // hasActiveSession is true if we have an active session in localStorage
-  // AND we haven't completed or errored yet
-  const hasActiveSession = activeSession !== null && !finalTripId && !streamError;
 
   return (
     <TripContext.Provider value={{
@@ -123,11 +104,8 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
       streamError, setStreamError,
       preview, setPreview,
       finalTripId, setFinalTripId,
-      startedAt, setStartedAt,
-      activeSession,
-      hasActiveSession,
-      resetTrip,
-      restoreSession
+      activeSession, saveActiveSession, clearActiveSession,
+      resetTrip
     }}>
       {children}
     </TripContext.Provider>

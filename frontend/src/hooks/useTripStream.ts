@@ -1,8 +1,7 @@
 import { useCallback, useRef } from 'react';
-import { useTrip } from '../context/TripContext';
+import { useTrip, type ActiveSession } from '../context/TripContext';
 import type { TripPreferences } from '../types';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { sessionStorage } from '../utils/sessionStorage';
 
 // Custom error to signal we should stop retrying
 class FatalError extends Error {}
@@ -15,10 +14,11 @@ export const useTripStream = () => {
     setFinalTripId,
     setIsStreaming,
     setStreamError,
-    setStartedAt,
     setPreferences,
     sessionId,
-    isStreaming 
+    isStreaming,
+    saveActiveSession,
+    clearActiveSession,
   } = useTrip();
 
   // Ref to track if we have an active connection
@@ -27,7 +27,7 @@ export const useTripStream = () => {
   const activeSessionIdRef = useRef<string | null>(null);
 
   // Helper to handle incoming SSE messages
-  const handleMessage = useCallback((event: any) => {
+  const handleMessage = useCallback((event: any, prefs?: TripPreferences) => {
     try {
       // SSE events have: event.type (the event name) and event.data (JSON string)
       const eventType = event.event || 'message';
@@ -48,8 +48,6 @@ export const useTripStream = () => {
         case 'planning':
         case 'validating':
           setStreamStatus(data.message || 'Processing...');
-          // Update session storage status
-          sessionStorage.update({ status: 'generating' });
           break;
 
         case 'awaiting_approval':
@@ -58,11 +56,19 @@ export const useTripStream = () => {
           if (approvalSessionId) {
             activeSessionIdRef.current = approvalSessionId;
             setSessionId(approvalSessionId);
+            
+            // Update active session with title from preview
+            if (prefs && data.preview?.itinerary?.trip_title) {
+              saveActiveSession({
+                sessionId: approvalSessionId,
+                preferences: prefs,
+                startedAt: Date.now(),
+                tripTitle: data.preview.itinerary.trip_title
+              });
+            }
           }
           setPreview(data.preview);
           setIsStreaming(false);
-          // Update session storage status
-          sessionStorage.update({ status: 'awaiting_approval' });
           break;
 
         case 'complete':
@@ -76,15 +82,15 @@ export const useTripStream = () => {
             console.error('⚠️ Complete event missing trip_id:', data);
           }
           setIsStreaming(false);
-          // Clear session storage on completion
-          sessionStorage.clear();
+          // Clear active session on completion
+          clearActiveSession();
           break;
 
         case 'error':
           setStreamError(data.message || 'Unknown error occurred');
           setIsStreaming(false);
-          // Clear session storage on error
-          sessionStorage.clear();
+          // Clear active session on error
+          clearActiveSession();
           break;
           
         default:
@@ -93,7 +99,7 @@ export const useTripStream = () => {
     } catch (err) {
       console.error('Error parsing SSE message:', err, 'Raw:', event);
     }
-  }, [setSessionId, setStreamStatus, setPreview, setFinalTripId, setIsStreaming, setStreamError]);
+  }, [setSessionId, setStreamStatus, setPreview, setFinalTripId, setIsStreaming, setStreamError, saveActiveSession, clearActiveSession]);
 
   // 1. Start Generation (Initial POST)
   const startGeneration = async (prefs: TripPreferences) => {
@@ -112,21 +118,16 @@ export const useTripStream = () => {
     abortControllerRef.current = controller;
     activeSessionIdRef.current = null; // Reset active session
 
-    // Set started time for tracking
-    const now = Date.now();
-    setStartedAt(now);
-    setPreferences(prefs);
     setIsStreaming(true);
     setStreamError(null);
     setStreamStatus('Initializing agent...');
 
-    // Save initial session to localStorage
-    sessionStorage.save({
-      sessionId: '', // Will be set when we get the session ID
+    // Save active session immediately (without session ID yet)
+    saveActiveSession({
+      sessionId: 'pending', // Will be updated when we get the real session ID
       preferences: prefs,
-      startedAt: now,
-      status: 'generating',
-      tripTitle: `${prefs.destinations.join(' → ')} Trip`
+      startedAt: Date.now(),
+      tripTitle: `Trip to ${prefs.destinations.join(', ')}`
     });
 
     try {
@@ -161,14 +162,14 @@ export const useTripStream = () => {
           
           setStreamError(errorMessage);
           setIsStreaming(false);
-          sessionStorage.clear();
+          clearActiveSession();
           return;
         } else {
           // Other HTTP errors
           const errorText = await response.text().catch(() => 'Unknown error');
           setStreamError(`Server error (${response.status}): ${errorText}`);
           setIsStreaming(false);
-          sessionStorage.clear();
+          clearActiveSession();
           return;
         }
       }
@@ -179,7 +180,7 @@ export const useTripStream = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prefs),
         signal: controller.signal,
-        onmessage: handleMessage,
+        onmessage: (event) => handleMessage(event, prefs),
         onclose: () => {
           console.log('SSE connection closed normally');
         },
@@ -199,11 +200,73 @@ export const useTripStream = () => {
       console.error('Failed to start generation:', err);
       setStreamError('Failed to connect. Please try again.');
       setIsStreaming(false);
-      sessionStorage.clear();
+      clearActiveSession();
     }
   };
 
-  // 2. Submit Decision (Resume Stream)
+  // 2. Reconnect to existing session
+  const reconnectToSession = async (session: ActiveSession): Promise<'streaming' | 'review' | 'complete' | 'error' | 'not_found'> => {
+    try {
+      // First, get the current session status
+      const res = await fetch(`/api/trip/session/${session.sessionId}/status`);
+      
+      if (!res.ok) {
+        if (res.status === 404) {
+          clearActiveSession();
+          return 'not_found';
+        }
+        throw new Error('Failed to get session status');
+      }
+
+      const status = await res.json();
+      console.log('Session status:', status);
+
+      // Restore preferences
+      setPreferences(session.preferences);
+
+      switch (status.status) {
+        case 'processing':
+          // Still processing - set up streaming state
+          setIsStreaming(true);
+          setStreamStatus('Trip generation in progress...');
+          setSessionId(session.sessionId);
+          activeSessionIdRef.current = session.sessionId;
+          return 'streaming';
+
+        case 'awaiting_approval':
+          // Ready for review
+          setSessionId(session.sessionId);
+          activeSessionIdRef.current = session.sessionId;
+          setPreview(status.preview);
+          setIsStreaming(false);
+          setStreamStatus('Ready for review');
+          return 'review';
+
+        case 'complete':
+          // Already completed
+          if (status.final_itinerary?.trip_id) {
+            setFinalTripId(status.final_itinerary.trip_id);
+          }
+          clearActiveSession();
+          return 'complete';
+
+        case 'failed':
+          setStreamError(status.error_message || 'Trip generation failed');
+          clearActiveSession();
+          return 'error';
+
+        default:
+          console.warn('Unknown session status:', status.status);
+          return 'error';
+      }
+    } catch (err) {
+      console.error('Failed to reconnect to session:', err);
+      clearActiveSession();
+      return 'error';
+    }
+  };
+
+  // 3. Submit Decision (Resume Stream)
   const submitDecision = async (action: 'approve' | 'revise', feedback?: string, newBudget?: number) => {
     if (!sessionId) return;
 
@@ -220,9 +283,6 @@ export const useTripStream = () => {
     setIsStreaming(true);
     setStreamStatus(action === 'approve' ? 'Finalizing trip...' : 'Revising itinerary...');
     setPreview(null);
-    
-    // Update session storage
-    sessionStorage.update({ status: 'finalizing' });
 
     try {
       await fetchEventSource(`/api/trip/session/${sessionId}/decide`, {
@@ -244,125 +304,6 @@ export const useTripStream = () => {
     }
   };
 
-  // 3. Reconnect to existing session (for navigation away/back)
-  const reconnectSession = async (savedSessionId: string, prefs: TripPreferences, savedStartedAt: number) => {
-    // Abort any existing connection
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    activeSessionIdRef.current = savedSessionId;
-
-    // Restore state
-    setSessionId(savedSessionId);
-    setPreferences(prefs);
-    setStartedAt(savedStartedAt);
-    setIsStreaming(true);
-    setStreamError(null);
-    setStreamStatus('Reconnecting...');
-
-    try {
-      // Check session status first
-      const statusRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
-      
-      if (!statusRes.ok) {
-        // Session no longer exists
-        setStreamError('Session expired. Please start a new trip.');
-        setIsStreaming(false);
-        sessionStorage.clear();
-        return;
-      }
-
-      const status = await statusRes.json();
-      console.log('Session status:', status);
-
-      // Handle based on current status
-      if (status.status === 'complete') {
-        // Trip already completed
-        if (status.trip_id) {
-          setFinalTripId(status.trip_id);
-        }
-        setIsStreaming(false);
-        sessionStorage.clear();
-        return;
-      }
-
-      if (status.status === 'awaiting_approval') {
-        // Need to show the preview
-        setPreview(status.preview);
-        setStreamStatus('Ready for review');
-        setIsStreaming(false);
-        return;
-      }
-
-      if (status.status === 'failed') {
-        setStreamError(status.error || 'Generation failed');
-        setIsStreaming(false);
-        sessionStorage.clear();
-        return;
-      }
-
-      // Still processing - reconnect to stream
-      // Note: The backend would need to support a "reconnect" SSE endpoint
-      // For now, we'll just poll for status
-      setStreamStatus('Resuming generation...');
-      
-      // Poll for updates
-      const pollInterval = setInterval(async () => {
-        try {
-          const pollRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
-          if (!pollRes.ok) {
-            clearInterval(pollInterval);
-            setStreamError('Session lost');
-            setIsStreaming(false);
-            sessionStorage.clear();
-            return;
-          }
-
-          const pollStatus = await pollRes.json();
-          
-          if (pollStatus.status === 'complete') {
-            clearInterval(pollInterval);
-            if (pollStatus.trip_id) {
-              setFinalTripId(pollStatus.trip_id);
-            }
-            setIsStreaming(false);
-            sessionStorage.clear();
-          } else if (pollStatus.status === 'awaiting_approval') {
-            clearInterval(pollInterval);
-            setPreview(pollStatus.preview);
-            setStreamStatus('Ready for review');
-            setIsStreaming(false);
-          } else if (pollStatus.status === 'failed') {
-            clearInterval(pollInterval);
-            setStreamError(pollStatus.error || 'Generation failed');
-            setIsStreaming(false);
-            sessionStorage.clear();
-          } else {
-            // Still processing
-            setStreamStatus(pollStatus.message || 'Processing...');
-          }
-        } catch (e) {
-          console.error('Poll error:', e);
-        }
-      }, 2000);
-
-      // Clean up on abort
-      controller.signal.addEventListener('abort', () => {
-        clearInterval(pollInterval);
-      });
-
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      console.error('Failed to reconnect:', err);
-      setStreamError('Failed to reconnect. Please start a new trip.');
-      setIsStreaming(false);
-      sessionStorage.clear();
-    }
-  };
-
   // 4. Cancel/Abort Stream
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
@@ -371,14 +312,13 @@ export const useTripStream = () => {
     }
     activeSessionIdRef.current = null; // Clear active session
     setIsStreaming(false);
-    // Don't clear session storage - the backend is still processing
-    // User might want to reconnect
-  }, [setIsStreaming]);
+    clearActiveSession();
+  }, [setIsStreaming, clearActiveSession]);
 
   return {
     startGeneration,
+    reconnectToSession,
     submitDecision,
-    reconnectSession,
     cancelStream
   };
 };
