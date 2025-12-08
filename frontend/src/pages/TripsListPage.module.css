@@ -150,6 +150,33 @@
   margin-right: 12px;
 }
 
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.deleteBtn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  opacity: 1;
+}
+
 .arrow {
   color: var(--text-muted);
   flex-shrink: 0;

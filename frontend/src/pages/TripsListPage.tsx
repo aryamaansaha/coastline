@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, MapPin, Wallet, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, MapPin, Wallet, ChevronRight, Trash2 } from 'lucide-react';
 import { useTrips, type TripSummary } from '../hooks/useApi';
 import styles from './TripsListPage.module.css';
 
 export const TripsListPage = () => {
   const navigate = useNavigate();
-  const { listTrips, loading } = useTrips();
+  const { listTrips, deleteTrip, loading } = useTrips();
   const [trips, setTrips] = useState<TripSummary[]>([]);
 
   useEffect(() => {
     listTrips().then(setTrips);
   }, [listTrips]);
+
+  const handleDelete = async (e: React.MouseEvent, tripId: string, tripTitle: string) => {
+    e.stopPropagation(); // Prevent card click navigation
+    if (confirm(`Are you sure you want to delete "${tripTitle}"? This cannot be undone.`)) {
+      const success = await deleteTrip(tripId);
+      if (success) {
+        // Remove from local state
+        setTrips(prev => prev.filter(t => t.trip_id !== tripId));
+      } else {
+        alert('Failed to delete trip. Please try again.');
+      }
+    }
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '';
@@ -63,7 +76,16 @@ export const TripsListPage = () => {
             >
               <div className={styles.cardHeader}>
                 <h3>{trip.trip_title}</h3>
-                <ChevronRight size={18} className={styles.arrow} />
+                <div className={styles.cardActions}>
+                  <button
+                    className={styles.deleteBtn}
+                    onClick={(e) => handleDelete(e, trip.trip_id, trip.trip_title)}
+                    title="Delete trip"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <ChevronRight size={18} className={styles.arrow} />
+                </div>
               </div>
               
               <div className={styles.cardMeta}>
