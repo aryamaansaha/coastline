@@ -33,6 +33,7 @@ from app.prompts import (
     format_budget_alert,
     format_schema_validation_error,
     format_json_parse_error,
+    format_user_feedback,
     AGENT_REQUEST_VALID_JSON
 )
 
@@ -391,9 +392,11 @@ def human_review_node(state: PlanState) -> dict:
             "current_step": "revision_requested"
         }
         
-        # Add feedback as message
+        # Add feedback as prominently formatted message
         if feedback:
-            result["messages"] = [HumanMessage(content=feedback)]
+            formatted_feedback = format_user_feedback(feedback, revision_count + 1)
+            result["messages"] = [HumanMessage(content=formatted_feedback)]
+            print(f"📝 HUMAN REVIEW: User feedback: {feedback[:100]}...")
         else:
             result["messages"] = [HumanMessage(content="Please revise the itinerary.")]
         
