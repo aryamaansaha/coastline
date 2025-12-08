@@ -14,7 +14,6 @@ export const TripsListPage = () => {
   const { activeSession, hasActiveSession, resetTrip } = useTrip();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState('');
 
   useEffect(() => {
@@ -48,9 +47,7 @@ export const TripsListPage = () => {
       return;
     }
     
-    setIsDeleting(true);
     const success = await deleteTrip(deleteModal.tripId);
-    setIsDeleting(false);
     
     if (success) {
       // Remove from local state

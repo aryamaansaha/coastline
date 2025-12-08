@@ -280,9 +280,11 @@ export const useTripStream = () => {
 
       // Handle based on current status
       if (status.status === 'complete') {
-        // Trip already completed
-        if (status.trip_id) {
-          setFinalTripId(status.trip_id);
+        // Trip already completed - extract trip_id from final_itinerary
+        const tripId = status.final_itinerary?.trip_id;
+        console.log('Session complete, trip_id:', tripId);
+        if (tripId) {
+          setFinalTripId(tripId);
         }
         setIsStreaming(false);
         sessionStorage.clear();
@@ -325,8 +327,11 @@ export const useTripStream = () => {
           
           if (pollStatus.status === 'complete') {
             clearInterval(pollInterval);
-            if (pollStatus.trip_id) {
-              setFinalTripId(pollStatus.trip_id);
+            // Extract trip_id from final_itinerary
+            const tripId = pollStatus.final_itinerary?.trip_id;
+            console.log('Poll: session complete, trip_id:', tripId);
+            if (tripId) {
+              setFinalTripId(tripId);
             }
             setIsStreaming(false);
             sessionStorage.clear();

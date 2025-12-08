@@ -22,7 +22,7 @@ export const ReviewPage = () => {
     return <div className={styles.error}>No preview available</div>;
   }
 
-  const { itinerary, total_cost, budget_limit, budget_status, revision_count } = preview;
+  const { itinerary, total_cost, budget_limit, revision_count } = preview;
 
   // Flatten all activities for the map
   const allActivities = useMemo(() => {
