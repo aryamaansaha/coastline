@@ -106,6 +106,48 @@ export const useTripStream = () => {
     setStreamStatus('Initializing agent...');
 
     try {
+      // First, check if the request will succeed (handle validation errors)
+      const response = await fetch('/api/trip/generate/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+        signal: controller.signal,
+      });
+
+      // Handle validation errors (422) before opening SSE stream
+      if (!response.ok) {
+        if (response.status === 422) {
+          // Validation error - parse and display details
+          const errorData = await response.json().catch(() => ({}));
+          const detail = errorData.detail || [];
+          let errorMessage = 'Validation error: ';
+          
+          if (Array.isArray(detail)) {
+            const errors = detail.map((err: any) => {
+              const field = err.loc?.join('.') || 'unknown';
+              const msg = err.msg || 'Invalid value';
+              return `${field}: ${msg}`;
+            }).join(', ');
+            errorMessage += errors;
+          } else if (typeof detail === 'string') {
+            errorMessage += detail;
+          } else {
+            errorMessage += 'Please check your input values';
+          }
+          
+          setStreamError(errorMessage);
+          setIsStreaming(false);
+          return;
+        } else {
+          // Other HTTP errors
+          const errorText = await response.text().catch(() => 'Unknown error');
+          setStreamError(`Server error (${response.status}): ${errorText}`);
+          setIsStreaming(false);
+          return;
+        }
+      }
+
+      // If we get here, response is OK - now open SSE stream
       await fetchEventSource('/api/trip/generate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
