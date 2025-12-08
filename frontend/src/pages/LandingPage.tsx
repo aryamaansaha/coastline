@@ -4,6 +4,7 @@ import { useTrip } from '../context/TripContext';
 import { useTripStream } from '../hooks/useTripStream';
 import type { TripPreferences } from '../types';
 import { Plane, Calendar, Wallet, MapPin, X, ArrowLeft } from 'lucide-react';
+import { Logo } from '../components/Logo';
 import styles from './LandingPage.module.css';
 
 export const LandingPage = () => {
@@ -54,6 +55,10 @@ export const LandingPage = () => {
       <div className={styles.card}>
         <div className={styles.backLink} onClick={() => navigate('/')}>
           <ArrowLeft size={16} /> Back to trips
+        </div>
+        
+        <div className={styles.logoWrapper}>
+          <Logo size="lg" />
         </div>
         
         <h1 className={styles.title}>Plan your next escape.</h1>
