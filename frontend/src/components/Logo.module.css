@@ -1,0 +1,44 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon {
+  object-fit: contain;
+}
+
+.text {
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+}
+
+/* Size variants */
+.sm .icon {
+  height: 20px;
+  width: 20px;
+}
+
+.sm .text {
+  font-size: 16px;
+}
+
+.md .icon {
+  height: 28px;
+  width: 28px;
+}
+
+.md .text {
+  font-size: 20px;
+}
+
+.lg .icon {
+  height: 36px;
+  width: 36px;
+}
+
+.lg .text {
+  font-size: 26px;
+}
+
