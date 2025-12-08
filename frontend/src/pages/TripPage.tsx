@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, MapPin, Loader } from 'lucide-react';
 import { DaySection } from '../components/DaySection';
 import { BudgetBar } from '../components/BudgetBar';
 import { DiscoveryDrawer } from '../components/DiscoveryDrawer';
@@ -23,19 +23,55 @@ export const TripPage = () => {
   const [discoveryType, setDiscoveryType] = useState<DiscoveryType>('restaurant');
   const [places, setPlaces] = useState<DiscoveredPlace[]>([]);
 
-  // Load trip on mount
-  useEffect(() => {
-    if (tripId) {
-      getTrip(tripId).then(data => {
-        if (data) setTrip(data);
-      });
-    }
+  // Check if geocoding is still in progress
+  const isGeocoding = useMemo(() => {
+    if (!trip?.geocoding_status) return false;
+    return trip.geocoding_status.status === 'pending' || trip.geocoding_status.status === 'in_progress';
+  }, [trip?.geocoding_status]);
+
+  const geocodingProgress = useMemo(() => {
+    if (!trip?.geocoding_status) return null;
+    const { geocoded_activities, total_activities } = trip.geocoding_status;
+    return {
+      percent: total_activities > 0 ? Math.round((geocoded_activities / total_activities) * 100) : 0,
+      geocoded: geocoded_activities,
+      total: total_activities
+    };
+  }, [trip?.geocoding_status]);
+
+  // Load trip
+  const loadTrip = useCallback(async () => {
+    if (!tripId) return;
+    const data = await getTrip(tripId);
+    if (data) setTrip(data);
   }, [tripId, getTrip]);
+
+  // Initial load
+  useEffect(() => {
+    loadTrip();
+  }, [loadTrip]);
+
+  // Poll for updates while geocoding
+  useEffect(() => {
+    if (!isGeocoding || !tripId) return;
+
+    const interval = setInterval(() => {
+      loadTrip();
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isGeocoding, tripId, loadTrip]);
 
   // Flatten all activities for the map
   const allActivities = useMemo(() => {
     if (!trip) return [];
     return trip.days.flatMap(day => day.activities);
+  }, [trip]);
+
+  // Extract cities for map fallback
+  const cities = useMemo(() => {
+    if (!trip) return [];
+    return [...new Set(trip.days.map(d => d.city))];
   }, [trip]);
 
   // Calculate total cost
@@ -44,16 +80,22 @@ export const TripPage = () => {
   }, [allActivities]);
 
   const handleDiscoveryClick = async (activity: Activity) => {
-    if (!tripId || !activity.location.lat || !activity.location.lng) {
-      alert('This activity doesn\'t have location coordinates for discovery.');
+    // Check if activity has coordinates
+    if (!activity.location.lat || !activity.location.lng) {
+      if (isGeocoding) {
+        alert('📍 This location is still being geocoded. Please wait a moment...');
+      } else {
+        alert('This activity doesn\'t have location coordinates for discovery.');
+      }
       return;
     }
+    
+    if (!tripId) return;
     
     setSelectedActivity(activity);
     setDiscoveryOpen(true);
     setDiscoveryType('restaurant');
     
-    // Fetch places
     const results = await discoverPlaces(tripId, activity.id, 'restaurant');
     setPlaces(results);
   };
@@ -89,7 +131,7 @@ export const TripPage = () => {
     }
   };
 
-  if (tripLoading) {
+  if (tripLoading && !trip) {
     return (
       <div className={styles.loading}>
         <div className={styles.spinner} />
@@ -109,6 +151,17 @@ export const TripPage = () => {
 
   return (
     <div className={styles.container}>
+      {/* Geocoding Banner */}
+      {isGeocoding && geocodingProgress && (
+        <div className={styles.geocodingBanner}>
+          <Loader size={16} className={styles.spinnerInline} />
+          <span>
+            <MapPin size={14} /> Geocoding locations... {geocodingProgress.geocoded}/{geocodingProgress.total} ({geocodingProgress.percent}%)
+          </span>
+        </div>
+      )}
+
+      <div className={styles.mainContent}>
       {/* Left Panel */}
       <div className={styles.leftPanel}>
         <div className={styles.header}>
@@ -155,6 +208,7 @@ export const TripPage = () => {
             setSelectedActivity(activity);
             setDiscoveryOpen(false);
           }}
+          fallbackCities={cities}
         />
         
         {/* Discovery Drawer overlays the map */}
@@ -171,6 +225,7 @@ export const TripPage = () => {
           />
         )}
       </div>
+      </div> {/* End mainContent */}
     </div>
   );
 };

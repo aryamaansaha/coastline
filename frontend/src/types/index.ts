@@ -28,6 +28,12 @@ export interface Day {
   activities: Activity[];
 }
 
+export interface GeocodingStatus {
+  status: 'pending' | 'in_progress' | 'complete' | 'failed';
+  total_activities: number;
+  geocoded_activities: number;
+}
+
 export interface Itinerary {
   trip_id: string;
   trip_title: string;
@@ -36,6 +42,7 @@ export interface Itinerary {
   total_cost?: number;
   created_at?: string;
   updated_at?: string;
+  geocoding_status?: GeocodingStatus | null;
 }
 
 // === Cost ===

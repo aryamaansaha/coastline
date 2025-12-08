@@ -1,7 +1,45 @@
 .container {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
+  overflow: hidden;
+}
+
+/* Geocoding Banner */
+.geocodingBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%);
+  border-bottom: 1px solid #fbbf24;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 500;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.geocodingBanner span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spinnerInline {
+  animation: spin 1s linear infinite;
+}
+
+/* Main content wrapper */
+.mainContent {
+  display: flex;
+  flex: 1;
   overflow: hidden;
 }
 
@@ -45,12 +83,13 @@
 /* Left Panel */
 .leftPanel {
   width: 520px;
+  min-width: 520px;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  height: 100%;
   box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+  z-index: 10;
 }
 
 .header {
