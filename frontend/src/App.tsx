@@ -1,20 +1,41 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
 import { useTrip } from './context/TripContext';
 import { LandingPage } from './pages/LandingPage';
 import { LoadingPage } from './pages/LoadingPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { TripPage } from './pages/TripPage';
 import { TripsListPage } from './pages/TripsListPage';
+import { ToastContainer } from './components/Toast';
+import { useToast, toast } from './hooks/useToast';
 
 // Main content component that handles the planning flow state
 function PlanningFlow() {
   const navigate = useNavigate();
-  const { isStreaming, preview, finalTripId, streamError, resetTrip, sessionId } = useTrip();
+  const location = useLocation();
+  const { isStreaming, preview, finalTripId, streamError, resetTrip, sessionId, hasActiveSession, restoreSession } = useTrip();
+  const hasCheckedSession = useRef(false);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    if (!hasCheckedSession.current && !isStreaming && !preview && !finalTripId) {
+      hasCheckedSession.current = true;
+      const saved = restoreSession();
+      if (saved) {
+        console.log('Restored session from localStorage:', saved);
+      }
+    }
+  }, [restoreSession, isStreaming, preview, finalTripId]);
 
   // Navigate to trip page when generation completes
   useEffect(() => {
     if (finalTripId) {
+      // Show success toast
+      toast.success('Your trip is ready!', {
+        label: 'View Trip',
+        onClick: () => navigate(`/trip?id=${finalTripId}`)
+      });
+      
       navigate(`/trip?id=${finalTripId}`, { replace: true });
       // Reset state after navigation completes
       setTimeout(() => {
@@ -83,8 +104,8 @@ function PlanningFlow() {
     return <ReviewPage />;
   }
 
-  // Loading / Agent Working
-  if (isStreaming) {
+  // Loading / Agent Working (including restored sessions)
+  if (isStreaming || hasActiveSession) {
     return <LoadingPage />;
   }
 
@@ -92,22 +113,36 @@ function PlanningFlow() {
   return <LandingPage />;
 }
 
+// Global toast listener for trip completion
+function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { toasts, dismiss } = useToast();
+  
+  return (
+    <>
+      {children}
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Home / My Trips */}
-        <Route path="/" element={<TripsListPage />} />
-        
-        {/* New Trip Planning Flow */}
-        <Route path="/new" element={<PlanningFlow />} />
-        
-        {/* View Saved Trip */}
-        <Route path="/trip" element={<TripPage />} />
-        
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          {/* Home / My Trips */}
+          <Route path="/" element={<TripsListPage />} />
+          
+          {/* New Trip Planning Flow */}
+          <Route path="/new" element={<PlanningFlow />} />
+          
+          {/* View Saved Trip */}
+          <Route path="/trip" element={<TripPage />} />
+          
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

@@ -213,3 +213,111 @@
   border-top: 1px solid var(--border);
 }
 
+/* In-Progress Card */
+.inProgressCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #7dd3fc;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.inProgressCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.15);
+}
+
+.inProgressCard:hover .arrow {
+  transform: translateX(4px);
+}
+
+.inProgressIcon {
+  width: 48px;
+  height: 48px;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.inProgressIcon svg {
+  color: #0ea5e9;
+}
+
+.spinningLoader {
+  animation: spin 1.5s linear infinite;
+}
+
+.inProgressContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.inProgressHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.inProgressTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inProgressStatus {
+  font-size: 12px;
+  font-weight: 500;
+  color: #0ea5e9;
+  background: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.inProgressMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.inProgressActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.cancelBtn {
+  background: white;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cancelBtn:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
