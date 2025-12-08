@@ -83,6 +83,16 @@ export const TripPage = () => {
     return () => clearInterval(interval);
   }, [isGeocoding, tripId, loadTrip]);
 
+  // Scroll to selected activity when clicking on map
+  useEffect(() => {
+    if (!selectedActivity) return;
+    
+    const element = document.querySelector(`[data-activity-id="${selectedActivity.id}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [selectedActivity]);
+
   // Flatten all activities for the map
   const allActivities = useMemo(() => {
     if (!trip) return [];
