@@ -1,16 +1,17 @@
-import { X, Star, RefreshCw, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { X, Star, RefreshCw, ExternalLink, Search } from 'lucide-react';
 import type { DiscoveredPlace, DiscoveryType, Activity } from '../types';
 import styles from './DiscoveryDrawer.module.css';
 
 interface DiscoveryDrawerProps {
   activity: Activity;
-  places: DiscoveredPlace[];
-  isLoading: boolean;
-  activeType: DiscoveryType;
-  onTypeChange: (type: DiscoveryType) => void;
-  onStar: (placeId: string, starred: boolean) => void;
-  onRegenerate: () => void;
+  tripId: string;
   onClose: () => void;
+  // API functions passed from parent
+  onDiscover: (activityId: string, type: DiscoveryType, regenerate: boolean) => Promise<DiscoveredPlace[]>;
+  onStar: (activityId: string, type: DiscoveryType, placeId: string, starred: boolean) => Promise<void>;
+  // Cached discoveries (keyed by type) - source of truth from parent
+  discoveries: Partial<Record<DiscoveryType, DiscoveredPlace[]>>;
 }
 
 const DISCOVERY_TABS: { type: DiscoveryType; label: string; emoji: string }[] = [
@@ -22,14 +23,36 @@ const DISCOVERY_TABS: { type: DiscoveryType; label: string; emoji: string }[] = 
 
 export const DiscoveryDrawer = ({
   activity,
-  places,
-  isLoading,
-  activeType,
-  onTypeChange,
-  onStar,
-  onRegenerate,
   onClose,
+  onDiscover,
+  onStar,
+  discoveries,
 }: DiscoveryDrawerProps) => {
+  const [activeType, setActiveType] = useState<DiscoveryType>('restaurant');
+  const [loadingType, setLoadingType] = useState<DiscoveryType | null>(null);
+
+  const currentPlaces = discoveries[activeType] || [];
+  // A type has been fetched if it exists in discoveries (even if empty array)
+  const hasFetched = activeType in discoveries;
+  const isLoading = loadingType === activeType;
+
+  const handleFind = async (regenerate = false) => {
+    setLoadingType(activeType);
+    try {
+      await onDiscover(activity.id, activeType, regenerate);
+    } finally {
+      setLoadingType(null);
+    }
+  };
+
+  const handleStar = async (placeId: string, starred: boolean) => {
+    await onStar(activity.id, activeType, placeId, starred);
+  };
+
+  const handleTabChange = (type: DiscoveryType) => {
+    setActiveType(type);
+  };
+
   return (
     <div className={styles.drawer}>
       <div className={styles.header}>
@@ -38,14 +61,6 @@ export const DiscoveryDrawer = ({
           <p className={styles.subtitle}>Near {activity.location.name}</p>
         </div>
         <div className={styles.headerActions}>
-          <button 
-            className={styles.refreshBtn} 
-            onClick={onRegenerate}
-            disabled={isLoading}
-            title="Find new places"
-          >
-            <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
-          </button>
           <button className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
@@ -57,10 +72,14 @@ export const DiscoveryDrawer = ({
           <button
             key={tab.type}
             className={`${styles.tab} ${activeType === tab.type ? styles.active : ''}`}
-            onClick={() => onTypeChange(tab.type)}
+            onClick={() => handleTabChange(tab.type)}
           >
             <span className={styles.tabEmoji}>{tab.emoji}</span>
             {tab.label}
+            {/* Show dot indicator if has cached results */}
+            {discoveries[tab.type] && discoveries[tab.type]!.length > 0 && (
+              <span className={styles.tabDot} />
+            )}
           </button>
         ))}
       </div>
@@ -69,23 +88,49 @@ export const DiscoveryDrawer = ({
         {isLoading ? (
           <div className={styles.loading}>
             <RefreshCw size={24} className={styles.spinning} />
-            <p>Finding places...</p>
+            <p>Finding {activeType}s...</p>
           </div>
-        ) : places.length === 0 ? (
+        ) : !hasFetched ? (
+          // Not yet fetched - show Find button
+          <div className={styles.findPrompt}>
+            <div className={styles.findIcon}>
+              {DISCOVERY_TABS.find(t => t.type === activeType)?.emoji}
+            </div>
+            <h3>Find {DISCOVERY_TABS.find(t => t.type === activeType)?.label}</h3>
+            <p>Discover nearby {activeType}s within walking distance</p>
+            <button className={styles.findBtn} onClick={() => handleFind(false)}>
+              <Search size={16} /> Find {DISCOVERY_TABS.find(t => t.type === activeType)?.label}
+            </button>
+          </div>
+        ) : currentPlaces.length === 0 ? (
+          // Fetched but no results
           <div className={styles.empty}>
             <p>No {activeType}s found nearby.</p>
-            <button className={styles.retryBtn} onClick={onRegenerate}>
-              Try Again
+            <button className={styles.retryBtn} onClick={() => handleFind(true)}>
+              <RefreshCw size={14} /> Try Again
             </button>
           </div>
         ) : (
-          places.map(place => (
-            <PlaceCard 
-              key={place.id} 
-              place={place} 
-              onStar={(starred) => onStar(place.id, starred)}
-            />
-          ))
+          // Show results
+          <>
+            <div className={styles.resultsHeader}>
+              <span>{currentPlaces.length} {activeType}s found</span>
+              <button 
+                className={styles.regenerateBtn} 
+                onClick={() => handleFind(true)}
+                title="Find new places"
+              >
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+            {currentPlaces.map(place => (
+              <PlaceCard 
+                key={place.id} 
+                place={place} 
+                onStar={(starred) => handleStar(place.id, starred)}
+              />
+            ))}
+          </>
         )}
       </div>
     </div>
@@ -145,4 +190,3 @@ const PlaceCard = ({
     </div>
   );
 };
-

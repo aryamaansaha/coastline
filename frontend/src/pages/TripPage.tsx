@@ -9,19 +9,23 @@ import { useTrips, useDiscovery } from '../hooks/useApi';
 import type { Itinerary, Activity, DiscoveredPlace, DiscoveryType } from '../types';
 import styles from './TripPage.module.css';
 
+// Type for cached discoveries (activity -> type -> places)
+type DiscoveryCache = Record<string, Partial<Record<DiscoveryType, DiscoveredPlace[]>>>;
+
 export const TripPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const tripId = searchParams.get('id');
 
   const { getTrip, deleteTrip, loading: tripLoading } = useTrips();
-  const { discoverPlaces, starPlace, loading: discoveryLoading } = useDiscovery();
+  const { discoverPlaces, starPlace, getAllDiscoveries } = useDiscovery();
 
   const [trip, setTrip] = useState<Itinerary | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
-  const [discoveryType, setDiscoveryType] = useState<DiscoveryType>('restaurant');
-  const [places, setPlaces] = useState<DiscoveredPlace[]>([]);
+  
+  // Cache of discoveries: { activityId: { restaurant: [...], bar: [...], ... } }
+  const [discoveryCache, setDiscoveryCache] = useState<DiscoveryCache>({});
 
   // Check if geocoding is still in progress
   const isGeocoding = useMemo(() => {
@@ -46,10 +50,27 @@ export const TripPage = () => {
     if (data) setTrip(data);
   }, [tripId, getTrip]);
 
+  // Load all existing discoveries for this trip
+  const loadDiscoveries = useCallback(async () => {
+    if (!tripId) return;
+    const discoveries = await getAllDiscoveries(tripId);
+    
+    // Convert array of discoveries to our cache format
+    const cache: DiscoveryCache = {};
+    for (const disc of discoveries) {
+      const activityId = disc.activity_id;
+      const discType = disc.discovery_type as DiscoveryType;
+      if (!cache[activityId]) cache[activityId] = {};
+      cache[activityId][discType] = disc.places || [];
+    }
+    setDiscoveryCache(cache);
+  }, [tripId, getAllDiscoveries]);
+
   // Initial load
   useEffect(() => {
     loadTrip();
-  }, [loadTrip]);
+    loadDiscoveries();
+  }, [loadTrip, loadDiscoveries]);
 
   // Poll for updates while geocoding
   useEffect(() => {
@@ -57,7 +78,7 @@ export const TripPage = () => {
 
     const interval = setInterval(() => {
       loadTrip();
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isGeocoding, tripId, loadTrip]);
@@ -79,7 +100,8 @@ export const TripPage = () => {
     return allActivities.reduce((sum, act) => sum + act.estimated_cost, 0);
   }, [allActivities]);
 
-  const handleDiscoveryClick = async (activity: Activity) => {
+  // Handle opening the discovery drawer
+  const handleDiscoveryClick = (activity: Activity) => {
     // Check if activity has coordinates
     if (!activity.location.lat || !activity.location.lng) {
       if (isGeocoding) {
@@ -90,36 +112,55 @@ export const TripPage = () => {
       return;
     }
     
-    if (!tripId) return;
-    
     setSelectedActivity(activity);
     setDiscoveryOpen(true);
-    setDiscoveryType('restaurant');
+    // No API call here - drawer will handle it when user clicks "Find"
+  };
+
+  // Discovery callback for the drawer
+  const handleDiscover = useCallback(async (
+    activityId: string, 
+    type: DiscoveryType, 
+    regenerate: boolean
+  ): Promise<DiscoveredPlace[]> => {
+    if (!tripId) return [];
     
-    const results = await discoverPlaces(tripId, activity.id, 'restaurant');
-    setPlaces(results);
-  };
+    const results = await discoverPlaces(tripId, activityId, type, regenerate);
+    
+    // Update cache
+    setDiscoveryCache(prev => ({
+      ...prev,
+      [activityId]: {
+        ...prev[activityId],
+        [type]: results
+      }
+    }));
+    
+    return results;
+  }, [tripId, discoverPlaces]);
 
-  const handleTypeChange = async (type: DiscoveryType) => {
-    if (!tripId || !selectedActivity) return;
-    setDiscoveryType(type);
-    const results = await discoverPlaces(tripId, selectedActivity.id, type);
-    setPlaces(results);
-  };
-
-  const handleRegenerate = async () => {
-    if (!tripId || !selectedActivity) return;
-    const results = await discoverPlaces(tripId, selectedActivity.id, discoveryType, true);
-    setPlaces(results);
-  };
-
-  const handleStar = async (placeId: string, starred: boolean) => {
-    if (!tripId || !selectedActivity) return;
-    const updated = await starPlace(tripId, selectedActivity.id, discoveryType, placeId, starred);
-    if (updated) {
-      setPlaces(prev => prev.map(p => p.id === placeId ? { ...p, starred } : p));
-    }
-  };
+  // Star callback for the drawer
+  const handleStar = useCallback(async (
+    activityId: string,
+    type: DiscoveryType,
+    placeId: string,
+    starred: boolean
+  ): Promise<void> => {
+    if (!tripId) return;
+    
+    await starPlace(tripId, activityId, type, placeId, starred);
+    
+    // Update cache
+    setDiscoveryCache(prev => ({
+      ...prev,
+      [activityId]: {
+        ...prev[activityId],
+        [type]: (prev[activityId]?.[type] || []).map(p =>
+          p.id === placeId ? { ...p, starred } : p
+        )
+      }
+    }));
+  }, [tripId, starPlace]);
 
   const handleDelete = async () => {
     if (!tripId) return;
@@ -149,6 +190,11 @@ export const TripPage = () => {
     );
   }
 
+  // Get cached discoveries for selected activity
+  const selectedActivityDiscoveries = selectedActivity 
+    ? discoveryCache[selectedActivity.id] || {}
+    : {};
+
   return (
     <div className={styles.container}>
       {/* Geocoding Banner */}
@@ -162,70 +208,68 @@ export const TripPage = () => {
       )}
 
       <div className={styles.mainContent}>
-      {/* Left Panel */}
-      <div className={styles.leftPanel}>
-        <div className={styles.header}>
-          <div className={styles.headerTop}>
-            <button className={styles.backBtn} onClick={() => navigate('/')}>
-              <ArrowLeft size={18} /> Back
-            </button>
-            <button className={styles.deleteBtn} onClick={handleDelete}>
-              <Trash2 size={16} />
-            </button>
+        {/* Left Panel */}
+        <div className={styles.leftPanel}>
+          <div className={styles.header}>
+            <div className={styles.headerTop}>
+              <button className={styles.backBtn} onClick={() => navigate('/')}>
+                <ArrowLeft size={18} /> Back
+              </button>
+              <button className={styles.deleteBtn} onClick={handleDelete}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+            
+            <h1 className={styles.title}>{trip.trip_title}</h1>
+            <p className={styles.meta}>
+              {trip.days.length} days • {trip.days.map(d => d.city).filter((v, i, a) => a.indexOf(v) === i).join(' → ')}
+            </p>
+            
+            <BudgetBar totalCost={totalCost} budgetLimit={trip.budget_limit} />
           </div>
-          
-          <h1 className={styles.title}>{trip.trip_title}</h1>
-          <p className={styles.meta}>
-            {trip.days.length} days • {trip.days.map(d => d.city).filter((v, i, a) => a.indexOf(v) === i).join(' → ')}
-          </p>
-          
-          <BudgetBar totalCost={totalCost} budgetLimit={trip.budget_limit} />
+
+          <div className={styles.scrollArea}>
+            {trip.days.map((day, index) => (
+              <DaySection
+                key={day.id || `day-${day.day_number}-${index}`}
+                day={day}
+                highlightedActivityId={selectedActivity?.id}
+                showDiscovery={true}
+                onDiscoveryClick={handleDiscoveryClick}
+                onActivityClick={(activity) => {
+                  setSelectedActivity(activity);
+                  setDiscoveryOpen(false);
+                }}
+              />
+            ))}
+          </div>
         </div>
 
-        <div className={styles.scrollArea}>
-          {trip.days.map((day, index) => (
-            <DaySection
-              key={day.id || `day-${day.day_number}-${index}`}
-              day={day}
-              highlightedActivityId={selectedActivity?.id}
-              showDiscovery={true}
-              onDiscoveryClick={handleDiscoveryClick}
-              onActivityClick={(activity) => {
-                setSelectedActivity(activity);
-                setDiscoveryOpen(false);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Right Panel - Map + Discovery */}
-      <div className={styles.rightPanel}>
-        <TripMap
-          activities={allActivities}
-          selectedActivity={selectedActivity}
-          onActivitySelect={(activity) => {
-            setSelectedActivity(activity);
-            setDiscoveryOpen(false);
-          }}
-          fallbackCities={cities}
-        />
-        
-        {/* Discovery Drawer overlays the map */}
-        {discoveryOpen && selectedActivity && (
-          <DiscoveryDrawer
-            activity={selectedActivity}
-            places={places}
-            isLoading={discoveryLoading}
-            activeType={discoveryType}
-            onTypeChange={handleTypeChange}
-            onStar={handleStar}
-            onRegenerate={handleRegenerate}
-            onClose={() => setDiscoveryOpen(false)}
+        {/* Right Panel - Map + Discovery */}
+        <div className={styles.rightPanel}>
+          <TripMap
+            activities={allActivities}
+            selectedActivity={selectedActivity}
+            onActivitySelect={(activity) => {
+              setSelectedActivity(activity);
+              setDiscoveryOpen(false);
+            }}
+            fallbackCities={cities}
           />
-        )}
+          
+          {/* Discovery Drawer overlays the map */}
+          {discoveryOpen && selectedActivity && tripId && (
+            <DiscoveryDrawer
+              activity={selectedActivity}
+              tripId={tripId}
+              onClose={() => setDiscoveryOpen(false)}
+              onDiscover={handleDiscover}
+              onStar={handleStar}
+              discoveries={selectedActivityDiscoveries}
+            />
+          )}
+        </div>
       </div>
-      </div> {/* End mainContent */}
     </div>
   );
 };

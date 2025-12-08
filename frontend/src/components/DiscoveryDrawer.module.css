@@ -109,6 +109,18 @@
   font-size: 14px;
 }
 
+.tabDot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-green);
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+.tab.active .tabDot {
+  background: white;
+}
+
 .content {
   flex: 1;
   overflow-y: auto;
@@ -132,12 +144,104 @@
 .retryBtn {
   margin-top: 12px;
   padding: 8px 16px;
-  background: var(--primary);
-  color: white;
-  border: none;
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.retryBtn:hover {
+  background: #f8fafc;
+}
+
+/* Find Prompt (initial state before searching) */
+.findPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  height: 100%;
+}
+
+.findIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.findPrompt h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.findPrompt p {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.findBtn {
+  padding: 12px 24px;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.2s;
+}
+
+.findBtn:hover {
+  opacity: 0.9;
+}
+
+/* Results Header */
+.resultsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.resultsHeader span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.regenerateBtn {
+  padding: 6px 12px;
+  background: white;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.regenerateBtn:hover {
+  background: #f8fafc;
+  color: var(--text);
 }
 
 /* Place Card */
