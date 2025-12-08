@@ -20,6 +20,8 @@ export const useTripStream = () => {
 
   // Ref to track if we have an active connection
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Ref to track the current session ID we're listening to (to ignore stale events)
+  const activeSessionIdRef = useRef<string | null>(null);
 
   // Helper to handle incoming SSE messages
   const handleMessage = useCallback((event: any) => {
@@ -27,6 +29,13 @@ export const useTripStream = () => {
       // SSE events have: event.type (the event name) and event.data (JSON string)
       const eventType = event.event || 'message';
       const data = event.data ? JSON.parse(event.data) : {};
+      
+      // Ignore events if they're for a different session (cancelled session)
+      const eventSessionId = data.session_id;
+      if (eventSessionId && activeSessionIdRef.current && eventSessionId !== activeSessionIdRef.current) {
+        console.log('Ignoring SSE event for cancelled session:', eventSessionId);
+        return;
+      }
       
       console.log('SSE Event:', eventType, data);
 
@@ -40,7 +49,11 @@ export const useTripStream = () => {
 
         case 'awaiting_approval':
           setStreamStatus('Ready for review');
-          setSessionId(data.session_id);
+          const approvalSessionId = data.session_id;
+          if (approvalSessionId) {
+            activeSessionIdRef.current = approvalSessionId;
+            setSessionId(approvalSessionId);
+          }
           setPreview(data.preview);
           setIsStreaming(false);
           break;
@@ -86,6 +99,7 @@ export const useTripStream = () => {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    activeSessionIdRef.current = null; // Reset active session
 
     setIsStreaming(true);
     setStreamError(null);
@@ -131,6 +145,8 @@ export const useTripStream = () => {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    // Keep the same active session ID for decision submission
+    activeSessionIdRef.current = sessionId;
 
     setIsStreaming(true);
     setStreamStatus(action === 'approve' ? 'Finalizing trip...' : 'Revising itinerary...');
@@ -156,8 +172,19 @@ export const useTripStream = () => {
     }
   };
 
+  // 3. Cancel/Abort Stream
+  const cancelStream = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeSessionIdRef.current = null; // Clear active session
+    setIsStreaming(false);
+  }, [setIsStreaming]);
+
   return {
     startGeneration,
-    submitDecision
+    submitDecision,
+    cancelStream
   };
 };

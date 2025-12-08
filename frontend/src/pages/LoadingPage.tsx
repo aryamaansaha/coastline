@@ -1,9 +1,31 @@
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
+import { useTripStream } from '../hooks/useTripStream';
 import styles from './LoadingPage.module.css';
 
 export const LoadingPage = () => {
-  const { streamStatus, resetTrip } = useTrip();
+  const navigate = useNavigate();
+  const { streamStatus, resetTrip, sessionId } = useTrip();
+  const { cancelStream } = useTripStream();
+
+  const handleCancel = async () => {
+    // Abort any active SSE connection
+    cancelStream();
+    
+    // Delete backend session if it exists
+    if (sessionId) {
+      try {
+        await fetch(`/api/trip/session/${sessionId}`, { method: 'DELETE' });
+      } catch (err) {
+        console.error('Failed to delete session:', err);
+      }
+    }
+    
+    // Clear frontend state and navigate away
+    resetTrip();
+    navigate('/');
+  };
 
   return (
     <div className={styles.container}>
@@ -26,7 +48,7 @@ export const LoadingPage = () => {
 
       <p className={styles.hint}>This usually takes 30-60 seconds</p>
       
-      <button className={styles.cancelBtn} onClick={resetTrip}>
+      <button className={styles.cancelBtn} onClick={handleCancel}>
         Cancel
       </button>
     </div>

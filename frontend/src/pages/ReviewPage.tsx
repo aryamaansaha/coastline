@@ -13,7 +13,7 @@ import styles from './ReviewPage.module.css';
 export const ReviewPage = () => {
   const navigate = useNavigate();
   const { preview, sessionId, resetTrip } = useTrip();
-  const { submitDecision } = useTripStream();
+  const { submitDecision, cancelStream } = useTripStream();
   
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
@@ -57,6 +57,9 @@ export const ReviewPage = () => {
 
   const handleCancel = async () => {
     if (confirm('Are you sure you want to cancel this trip?')) {
+      // Abort any active SSE connection first
+      cancelStream();
+      
       // Delete backend session if it exists (cleanup)
       if (sessionId) {
         try {
