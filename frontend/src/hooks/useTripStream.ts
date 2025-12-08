@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useTrip } from '../context/TripContext';
 import type { TripPreferences } from '../types';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { sessionStorage } from '../utils/sessionStorage';
 
 // Custom error to signal we should stop retrying
 class FatalError extends Error {}
@@ -14,6 +15,8 @@ export const useTripStream = () => {
     setFinalTripId,
     setIsStreaming,
     setStreamError,
+    setStartedAt,
+    setPreferences,
     sessionId,
     isStreaming 
   } = useTrip();
@@ -45,6 +48,8 @@ export const useTripStream = () => {
         case 'planning':
         case 'validating':
           setStreamStatus(data.message || 'Processing...');
+          // Update session storage status
+          sessionStorage.update({ status: 'generating' });
           break;
 
         case 'awaiting_approval':
@@ -56,6 +61,8 @@ export const useTripStream = () => {
           }
           setPreview(data.preview);
           setIsStreaming(false);
+          // Update session storage status
+          sessionStorage.update({ status: 'awaiting_approval' });
           break;
 
         case 'complete':
@@ -69,11 +76,15 @@ export const useTripStream = () => {
             console.error('⚠️ Complete event missing trip_id:', data);
           }
           setIsStreaming(false);
+          // Clear session storage on completion
+          sessionStorage.clear();
           break;
 
         case 'error':
           setStreamError(data.message || 'Unknown error occurred');
           setIsStreaming(false);
+          // Clear session storage on error
+          sessionStorage.clear();
           break;
           
         default:
@@ -101,9 +112,22 @@ export const useTripStream = () => {
     abortControllerRef.current = controller;
     activeSessionIdRef.current = null; // Reset active session
 
+    // Set started time for tracking
+    const now = Date.now();
+    setStartedAt(now);
+    setPreferences(prefs);
     setIsStreaming(true);
     setStreamError(null);
     setStreamStatus('Initializing agent...');
+
+    // Save initial session to localStorage
+    sessionStorage.save({
+      sessionId: '', // Will be set when we get the session ID
+      preferences: prefs,
+      startedAt: now,
+      status: 'generating',
+      tripTitle: `${prefs.destinations.join(' → ')} Trip`
+    });
 
     try {
       // First, check if the request will succeed (handle validation errors)
@@ -137,12 +161,14 @@ export const useTripStream = () => {
           
           setStreamError(errorMessage);
           setIsStreaming(false);
+          sessionStorage.clear();
           return;
         } else {
           // Other HTTP errors
           const errorText = await response.text().catch(() => 'Unknown error');
           setStreamError(`Server error (${response.status}): ${errorText}`);
           setIsStreaming(false);
+          sessionStorage.clear();
           return;
         }
       }
@@ -173,6 +199,7 @@ export const useTripStream = () => {
       console.error('Failed to start generation:', err);
       setStreamError('Failed to connect. Please try again.');
       setIsStreaming(false);
+      sessionStorage.clear();
     }
   };
 
@@ -193,6 +220,9 @@ export const useTripStream = () => {
     setIsStreaming(true);
     setStreamStatus(action === 'approve' ? 'Finalizing trip...' : 'Revising itinerary...');
     setPreview(null);
+    
+    // Update session storage
+    sessionStorage.update({ status: 'finalizing' });
 
     try {
       await fetchEventSource(`/api/trip/session/${sessionId}/decide`, {
@@ -214,7 +244,126 @@ export const useTripStream = () => {
     }
   };
 
-  // 3. Cancel/Abort Stream
+  // 3. Reconnect to existing session (for navigation away/back)
+  const reconnectSession = async (savedSessionId: string, prefs: TripPreferences, savedStartedAt: number) => {
+    // Abort any existing connection
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    activeSessionIdRef.current = savedSessionId;
+
+    // Restore state
+    setSessionId(savedSessionId);
+    setPreferences(prefs);
+    setStartedAt(savedStartedAt);
+    setIsStreaming(true);
+    setStreamError(null);
+    setStreamStatus('Reconnecting...');
+
+    try {
+      // Check session status first
+      const statusRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
+      
+      if (!statusRes.ok) {
+        // Session no longer exists
+        setStreamError('Session expired. Please start a new trip.');
+        setIsStreaming(false);
+        sessionStorage.clear();
+        return;
+      }
+
+      const status = await statusRes.json();
+      console.log('Session status:', status);
+
+      // Handle based on current status
+      if (status.status === 'complete') {
+        // Trip already completed
+        if (status.trip_id) {
+          setFinalTripId(status.trip_id);
+        }
+        setIsStreaming(false);
+        sessionStorage.clear();
+        return;
+      }
+
+      if (status.status === 'awaiting_approval') {
+        // Need to show the preview
+        setPreview(status.preview);
+        setStreamStatus('Ready for review');
+        setIsStreaming(false);
+        return;
+      }
+
+      if (status.status === 'failed') {
+        setStreamError(status.error || 'Generation failed');
+        setIsStreaming(false);
+        sessionStorage.clear();
+        return;
+      }
+
+      // Still processing - reconnect to stream
+      // Note: The backend would need to support a "reconnect" SSE endpoint
+      // For now, we'll just poll for status
+      setStreamStatus('Resuming generation...');
+      
+      // Poll for updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
+          if (!pollRes.ok) {
+            clearInterval(pollInterval);
+            setStreamError('Session lost');
+            setIsStreaming(false);
+            sessionStorage.clear();
+            return;
+          }
+
+          const pollStatus = await pollRes.json();
+          
+          if (pollStatus.status === 'complete') {
+            clearInterval(pollInterval);
+            if (pollStatus.trip_id) {
+              setFinalTripId(pollStatus.trip_id);
+            }
+            setIsStreaming(false);
+            sessionStorage.clear();
+          } else if (pollStatus.status === 'awaiting_approval') {
+            clearInterval(pollInterval);
+            setPreview(pollStatus.preview);
+            setStreamStatus('Ready for review');
+            setIsStreaming(false);
+          } else if (pollStatus.status === 'failed') {
+            clearInterval(pollInterval);
+            setStreamError(pollStatus.error || 'Generation failed');
+            setIsStreaming(false);
+            sessionStorage.clear();
+          } else {
+            // Still processing
+            setStreamStatus(pollStatus.message || 'Processing...');
+          }
+        } catch (e) {
+          console.error('Poll error:', e);
+        }
+      }, 2000);
+
+      // Clean up on abort
+      controller.signal.addEventListener('abort', () => {
+        clearInterval(pollInterval);
+      });
+
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
+      console.error('Failed to reconnect:', err);
+      setStreamError('Failed to reconnect. Please start a new trip.');
+      setIsStreaming(false);
+      sessionStorage.clear();
+    }
+  };
+
+  // 4. Cancel/Abort Stream
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -222,11 +371,14 @@ export const useTripStream = () => {
     }
     activeSessionIdRef.current = null; // Clear active session
     setIsStreaming(false);
+    // Don't clear session storage - the backend is still processing
+    // User might want to reconnect
   }, [setIsStreaming]);
 
   return {
     startGeneration,
     submitDecision,
+    reconnectSession,
     cancelStream
   };
 };
