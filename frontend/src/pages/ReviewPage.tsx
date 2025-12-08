@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Check, Edit2, X } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useTripStream } from '../hooks/useTripStream';
@@ -10,6 +11,7 @@ import type { Activity } from '../types';
 import styles from './ReviewPage.module.css';
 
 export const ReviewPage = () => {
+  const navigate = useNavigate();
   const { preview, sessionId, resetTrip } = useTrip();
   const { submitDecision } = useTripStream();
   
@@ -32,6 +34,16 @@ export const ReviewPage = () => {
     return [...new Set(itinerary.days.map(day => day.city))];
   }, [itinerary]);
 
+  // Scroll to selected activity when clicking on map
+  useEffect(() => {
+    if (!selectedActivity) return;
+    
+    const element = document.querySelector(`[data-activity-id="${selectedActivity.id}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [selectedActivity]);
+
   const handleApprove = () => {
     if (!sessionId) return;
     submitDecision('approve');
@@ -43,9 +55,21 @@ export const ReviewPage = () => {
     setShowRevisionModal(false);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (confirm('Are you sure you want to cancel this trip?')) {
+      // Delete backend session if it exists (cleanup)
+      if (sessionId) {
+        try {
+          await fetch(`/api/trip/session/${sessionId}`, { method: 'DELETE' });
+        } catch (err) {
+          console.error('Failed to delete session:', err);
+          // Continue anyway - frontend cleanup is more important
+        }
+      }
+      
+      // Clear frontend state and navigate away
       resetTrip();
+      navigate('/'); // Navigate to trips list
     }
   };
 

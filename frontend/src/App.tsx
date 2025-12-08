@@ -10,7 +10,7 @@ import { TripsListPage } from './pages/TripsListPage';
 // Main content component that handles the planning flow state
 function PlanningFlow() {
   const navigate = useNavigate();
-  const { isStreaming, preview, finalTripId, streamError, resetTrip } = useTrip();
+  const { isStreaming, preview, finalTripId, streamError, resetTrip, sessionId } = useTrip();
 
   // Navigate to trip page when generation completes
   useEffect(() => {
@@ -22,6 +22,15 @@ function PlanningFlow() {
       }, 200);
     }
   }, [finalTripId, navigate, resetTrip]);
+
+  // Safety check: Clear stale previews (preview without active session)
+  useEffect(() => {
+    if (preview && !sessionId && !isStreaming) {
+      // Stale preview detected - clear it
+      console.log('Clearing stale preview');
+      resetTrip();
+    }
+  }, [preview, sessionId, isStreaming, resetTrip]);
 
   // If trip is complete, show loading while navigating
   if (finalTripId) {
