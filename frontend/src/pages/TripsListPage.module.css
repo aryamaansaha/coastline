@@ -6,6 +6,10 @@
   margin: 0 auto;
 }
 
+.topBar {
+  margin-bottom: 32px;
+}
+
 .header {
   display: flex;
   justify-content: space-between;

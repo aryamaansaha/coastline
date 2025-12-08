@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, MapPin, Wallet, ChevronRight, Trash2 } from 'lucide-react';
 import { useTrips, type TripSummary } from '../hooks/useApi';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { Logo } from '../components/Logo';
 import styles from './TripsListPage.module.css';
 
 export const TripsListPage = () => {
@@ -59,6 +60,10 @@ export const TripsListPage = () => {
 
   return (
     <div className={styles.container}>
+      <div className={styles.topBar}>
+        <Logo size="md" />
+      </div>
+      
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Your Trips</h1>
