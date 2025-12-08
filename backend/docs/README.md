@@ -12,6 +12,7 @@ AI-powered travel planning with Human-in-the-Loop (HITL) workflow.
 | [MCP_SERVER.md](./MCP_SERVER.md) | MCP protocol, Amadeus tools, retry logic |
 | [API.md](./API.md) | REST API reference, endpoints, request/response |
 | [SSE.md](./SSE.md) | Server-Sent Events, streaming, client implementation |
+| [DISCOVERY.md](./DISCOVERY.md) | Place discovery service, Gemini integration, caching |
 
 ## Quick Links
 
