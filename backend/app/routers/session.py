@@ -60,6 +60,7 @@ async def get_mcp_tools():
         return _langchain_tools
     
     from langchain_mcp_adapters.client import MultiServerMCPClient
+    import os
     
     server_path = str(backend_dir / "mcp" / "server.py")
     
@@ -67,7 +68,8 @@ async def get_mcp_tools():
         "travel-server": {
             "command": sys.executable,
             "args": [server_path],
-            "transport": "stdio"
+            "transport": "stdio",
+            "env": dict(os.environ)  # Pass environment variables to subprocess
         }
     })
     
