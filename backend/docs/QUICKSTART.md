@@ -47,8 +47,8 @@ OPENAI_API_KEY=sk-...
 # GOOGLE_API_KEY=...
 
 # Amadeus (required)
-AMADEUS_API_KEY=your_key
-AMADEUS_API_SECRET=your_secret
+AMADEUS_CLIENT_ID=your_key
+AMADEUS_CLIENT_SECRET=your_secret
 
 # Google AI Studio (for discovery)
 GOOGLE_API_KEY=your_key
