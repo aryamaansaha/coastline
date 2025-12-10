@@ -8,7 +8,7 @@ Coastline is an AI-powered travel planning application with a Human-in-the-Loop 
 
 ```mermaid
 flowchart TB
-    subgraph Client["Frontend (Future)"]
+    subgraph Client["Frontend"]
         UI[Web UI]
     end
 
