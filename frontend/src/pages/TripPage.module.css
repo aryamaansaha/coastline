@@ -227,3 +227,131 @@
   font-family: monospace;
 }
 
+/* Mobile View Toggle */
+.mobileToggle {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+}
+
+.mobileToggle button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.mobileToggle button.active {
+  background: var(--text);
+  color: white;
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .mainContent {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .leftPanel {
+    width: 100%;
+    min-width: unset;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    transition: transform 0.3s ease-out;
+  }
+
+  .leftPanel.hidden {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+
+  .rightPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  .mobileToggle {
+    display: flex;
+  }
+
+  .header {
+    padding: 16px;
+    padding-bottom: 16px;
+  }
+
+  .headerTop {
+    margin-bottom: 12px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .meta {
+    font-size: 13px;
+  }
+
+  .scrollArea {
+    padding: 16px;
+    padding-bottom: 100px; /* Space for mobile toggle */
+  }
+
+  .backBtn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .geocodingBanner {
+    font-size: 12px;
+    padding: 8px 16px;
+  }
+
+  .activityInfo {
+    bottom: 80px; /* Above mobile toggle */
+    left: 16px;
+    right: 16px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .header {
+    padding: 12px;
+  }
+
+  .scrollArea {
+    padding: 12px;
+    padding-bottom: 100px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+}
+

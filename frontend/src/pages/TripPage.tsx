@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, MapPin, Loader } from 'lucide-react';
+import { ArrowLeft, Trash2, MapPin, Loader, Map, List } from 'lucide-react';
 import { DaySection } from '../components/DaySection';
 import { BudgetBar } from '../components/BudgetBar';
 import { DiscoveryDrawer } from '../components/DiscoveryDrawer';
@@ -23,6 +23,7 @@ export const TripPage = () => {
   const [trip, setTrip] = useState<Itinerary | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const [mobileView, setMobileView] = useState<'itinerary' | 'map'>('itinerary');
   
   // Cache of discoveries: { activityId: { restaurant: [...], bar: [...], ... } }
   const [discoveryCache, setDiscoveryCache] = useState<DiscoveryCache>({});
@@ -219,7 +220,7 @@ export const TripPage = () => {
 
       <div className={styles.mainContent}>
         {/* Left Panel */}
-        <div className={styles.leftPanel}>
+        <div className={`${styles.leftPanel} ${mobileView === 'map' ? styles.hidden : ''}`}>
           <div className={styles.header}>
             <div className={styles.headerTop}>
               <button className={styles.backBtn} onClick={() => navigate('/')}>
@@ -278,6 +279,22 @@ export const TripPage = () => {
               discoveries={selectedActivityDiscoveries}
             />
           )}
+        </div>
+
+        {/* Mobile View Toggle */}
+        <div className={styles.mobileToggle}>
+          <button 
+            className={mobileView === 'itinerary' ? styles.active : ''}
+            onClick={() => setMobileView('itinerary')}
+          >
+            <List size={16} /> Itinerary
+          </button>
+          <button 
+            className={mobileView === 'map' ? styles.active : ''}
+            onClick={() => setMobileView('map')}
+          >
+            <Map size={16} /> Map
+          </button>
         </div>
       </div>
     </div>
