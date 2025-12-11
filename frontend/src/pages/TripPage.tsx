@@ -256,7 +256,7 @@ export const TripPage = () => {
           </div>
         </div>
 
-        {/* Right Panel - Map + Discovery */}
+        {/* Right Panel - Map */}
         <div className={styles.rightPanel}>
           <TripMap
             activities={allActivities}
@@ -267,18 +267,6 @@ export const TripPage = () => {
             }}
             fallbackCities={cities}
           />
-          
-          {/* Discovery Drawer overlays the map */}
-          {discoveryOpen && selectedActivity && tripId && (
-            <DiscoveryDrawer
-              activity={selectedActivity}
-              tripId={tripId}
-              onClose={() => setDiscoveryOpen(false)}
-              onDiscover={handleDiscover}
-              onStar={handleStar}
-              discoveries={selectedActivityDiscoveries}
-            />
-          )}
         </div>
 
         {/* Mobile View Toggle */}
@@ -297,6 +285,18 @@ export const TripPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Discovery Drawer - overlays both views (works on mobile and desktop) */}
+      {discoveryOpen && selectedActivity && tripId && (
+        <DiscoveryDrawer
+          activity={selectedActivity}
+          tripId={tripId}
+          onClose={() => setDiscoveryOpen(false)}
+          onDiscover={handleDiscover}
+          onStar={handleStar}
+          discoveries={selectedActivityDiscoveries}
+        />
+      )}
     </div>
   );
 };

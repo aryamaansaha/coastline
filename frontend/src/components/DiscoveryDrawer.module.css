@@ -1,5 +1,5 @@
 .drawer {
-  position: absolute;
+  position: fixed;
   top: 16px;
   bottom: 16px;
   left: 16px;
@@ -11,6 +11,13 @@
   flex-direction: column;
   z-index: 30;
   animation: slideIn 0.3s ease-out;
+}
+
+/* Desktop: position relative to right panel (left panel is 520px wide) */
+@media (min-width: 769px) {
+  .drawer {
+    left: calc(520px + 16px);
+  }
 }
 
 @keyframes slideIn {
@@ -338,6 +345,7 @@
     bottom: 0;
     width: 100%;
     border-radius: 0;
+    z-index: 200; /* Higher than mobile toggle (100) to overlay everything */
     animation: slideUp 0.3s ease-out;
   }
 
