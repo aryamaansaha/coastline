@@ -321,3 +321,148 @@
   color: #dc2626;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 16px;
+    padding-bottom: 32px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .newTripBtn {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 20px;
+  }
+
+  /* Single column grid on mobile */
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .card:hover {
+    transform: none; /* Disable hover transform on touch */
+  }
+
+  .card:active {
+    transform: scale(0.98);
+  }
+
+  .cardHeader h3 {
+    font-size: 16px;
+  }
+
+  .cardMeta {
+    gap: 12px;
+  }
+
+  .metaItem {
+    font-size: 12px;
+  }
+
+  .cardFooter {
+    font-size: 11px;
+  }
+
+  /* In-Progress Card */
+  .inProgressCard {
+    padding: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .inProgressCard:hover {
+    transform: none;
+  }
+
+  .inProgressCard:active {
+    transform: scale(0.98);
+  }
+
+  .inProgressIcon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .inProgressTitle {
+    font-size: 15px;
+  }
+
+  .inProgressStatus {
+    font-size: 11px;
+  }
+
+  .inProgressMeta {
+    font-size: 12px;
+  }
+
+  .inProgressActions {
+    gap: 8px;
+  }
+
+  /* Empty state */
+  .empty {
+    padding: 60px 20px;
+  }
+
+  .emptyIcon {
+    font-size: 48px;
+  }
+
+  .empty h3 {
+    font-size: 18px;
+  }
+
+  .empty p {
+    font-size: 14px;
+  }
+
+  .createBtn {
+    padding: 14px 24px;
+    font-size: 14px;
+    width: 100%;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .cardHeader h3 {
+    font-size: 15px;
+  }
+
+  .inProgressCard {
+    padding: 14px;
+  }
+}
+
