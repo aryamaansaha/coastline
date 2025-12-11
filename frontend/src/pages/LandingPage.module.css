@@ -151,6 +151,30 @@
   color: #94a3b8;
 }
 
+.addBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s, transform 0.1s;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.addBtn:hover {
+  opacity: 0.9;
+}
+
+.addBtn:active {
+  transform: scale(0.95);
+}
+
 /* Submit Button */
 .submitBtn {
   width: 100%;
@@ -245,6 +269,12 @@
   .chipInput {
     min-width: 80px;
     font-size: 14px;
+  }
+
+  .addBtn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 8px;
   }
 
   .submitBtn {

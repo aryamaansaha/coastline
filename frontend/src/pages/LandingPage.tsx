@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTrip } from '../context/TripContext';
 import { useTripStream } from '../hooks/useTripStream';
 import type { TripPreferences } from '../types';
-import { Plane, Calendar, Wallet, MapPin, X, ArrowLeft } from 'lucide-react';
+import { Plane, Calendar, Wallet, MapPin, X, ArrowLeft, Plus } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import styles from './LandingPage.module.css';
 
@@ -22,8 +22,9 @@ export const LandingPage = () => {
   const [origin, setOrigin] = useState('New York');
 
   const addDestination = () => {
-    if (currentDest.trim() && !destinations.includes(currentDest.trim())) {
-      setDestinations([...destinations, currentDest.trim()]);
+    const trimmed = currentDest.trim();
+    if (trimmed && !destinations.some(d => d.toLowerCase() === trimmed.toLowerCase())) {
+      setDestinations([...destinations, trimmed]);
       setCurrentDest('');
     }
   };
@@ -81,14 +82,35 @@ export const LandingPage = () => {
               value={currentDest}
               onChange={(e) => setCurrentDest(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' || e.key === 'Go' || e.keyCode === 13) {
                   e.preventDefault();
+                  addDestination();
+                  // Blur the input to dismiss mobile keyboard
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              onBlur={() => {
+                // Add destination when user finishes typing (mobile-friendly)
+                if (currentDest.trim()) {
                   addDestination();
                 }
               }}
               placeholder="Add city..."
               className={styles.chipInput}
             />
+            {currentDest.trim() && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  addDestination();
+                }}
+                className={styles.addBtn}
+                aria-label="Add destination"
+              >
+                <Plus size={16} />
+              </button>
+            )}
           </div>
         </div>
 
