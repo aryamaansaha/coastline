@@ -150,3 +150,80 @@
   border-radius: 8px;
   border: 1px solid #bae6fd;
 }
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  .content {
+    padding: 20px 16px;
+  }
+
+  .title {
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .terminal {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .terminalBody {
+    padding: 16px;
+    font-size: 12px;
+    min-height: 60px;
+  }
+
+  .meta {
+    margin-top: 20px;
+  }
+
+  .elapsed {
+    font-size: 14px;
+  }
+
+  .hint {
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .actions {
+    margin-top: 20px;
+    width: 100%;
+  }
+
+  .cancelBtn {
+    width: 100%;
+    padding: 14px 24px;
+  }
+
+  .navHint {
+    margin-top: 24px;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .backBtn {
+    padding: 12px 16px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .terminalBody {
+    font-size: 11px;
+    padding: 12px;
+  }
+}
