@@ -102,7 +102,7 @@ export const LoadingPage = () => {
 
         <div className={styles.meta}>
           {elapsedTime && <span className={styles.elapsed}>{elapsedTime} elapsed</span>}
-          <span className={styles.hint}>This usually takes 60-90 seconds</span>
+          <span className={styles.hint}>This usually takes a couple of minutes</span>
         </div>
         
         <div className={styles.actions}>
