@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Edit2, X } from 'lucide-react';
+import { Check, Edit2, X, Map, List } from 'lucide-react';
 import { useTrip } from '../context/TripContext';
 import { useTripStream } from '../hooks/useTripStream';
 import { DaySection } from '../components/DaySection';
@@ -17,6 +17,7 @@ export const ReviewPage = () => {
   
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [mobileView, setMobileView] = useState<'itinerary' | 'map'>('itinerary');
 
   if (!preview || !preview.itinerary) {
     return <div className={styles.error}>No preview available</div>;
@@ -79,7 +80,7 @@ export const ReviewPage = () => {
   return (
     <div className={styles.container}>
       {/* Left Panel - Itinerary */}
-      <div className={styles.leftPanel}>
+      <div className={`${styles.leftPanel} ${mobileView === 'map' ? styles.hidden : ''}`}>
         <div className={styles.header}>
           <div className={styles.titleArea}>
             <span className={styles.badge}>
@@ -138,6 +139,22 @@ export const ReviewPage = () => {
           onCancel={() => setShowRevisionModal(false)}
         />
       )}
+
+      {/* Mobile View Toggle */}
+      <div className={styles.mobileToggle}>
+        <button 
+          className={mobileView === 'itinerary' ? styles.active : ''}
+          onClick={() => setMobileView('itinerary')}
+        >
+          <List size={16} /> Itinerary
+        </button>
+        <button 
+          className={mobileView === 'map' ? styles.active : ''}
+          onClick={() => setMobileView('map')}
+        >
+          <Map size={16} /> Map
+        </button>
+      </div>
     </div>
   );
 };

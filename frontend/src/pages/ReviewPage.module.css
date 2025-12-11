@@ -174,3 +174,154 @@
   margin-top: 4px !important;
 }
 
+/* Mobile View Toggle */
+.mobileToggle {
+  display: none;
+  position: fixed;
+  bottom: 100px; /* Above action bar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+}
+
+.mobileToggle button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.mobileToggle button.active {
+  background: var(--text);
+  color: white;
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .leftPanel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    transition: transform 0.3s ease-out;
+  }
+
+  .leftPanel.hidden {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+
+  .rightPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  .mobileToggle {
+    display: flex;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .meta {
+    font-size: 13px;
+  }
+
+  .scrollArea {
+    padding: 16px;
+    padding-bottom: 180px; /* Space for toggle + action bar */
+  }
+
+  .actionBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 50;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btnPrimary, .btnSecondary, .btnDanger {
+    padding: 14px 16px;
+    font-size: 13px;
+  }
+
+  .btnDanger {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 14px;
+  }
+
+  .btnSecondary, .btnPrimary {
+    flex: 1;
+  }
+
+  .activityInfo {
+    bottom: 180px;
+    left: 16px;
+    right: 16px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .header {
+    padding: 12px;
+  }
+
+  .scrollArea {
+    padding: 12px;
+    padding-bottom: 180px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .actionBar {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .btnPrimary, .btnSecondary, .btnDanger {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+}
+
