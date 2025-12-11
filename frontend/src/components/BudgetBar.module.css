@@ -43,3 +43,23 @@
   font-weight: 500;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    margin-top: 12px;
+  }
+
+  .labels {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .track {
+    height: 5px;
+  }
+
+  .warning {
+    font-size: 11px;
+  }
+}
+
