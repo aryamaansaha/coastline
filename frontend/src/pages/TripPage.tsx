@@ -5,6 +5,7 @@ import { DaySection } from '../components/DaySection';
 import { BudgetBar } from '../components/BudgetBar';
 import { DiscoveryDrawer } from '../components/DiscoveryDrawer';
 import { TripMap } from '../components/TripMap';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { useTrips, useDiscovery } from '../hooks/useApi';
 import type { Itinerary, Activity, DiscoveredPlace, DiscoveryType } from '../types';
 import styles from './TripPage.module.css';
@@ -24,6 +25,7 @@ export const TripPage = () => {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const [mobileView, setMobileView] = useState<'itinerary' | 'map'>('itinerary');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Cache of discoveries: { activityId: { restaurant: [...], bar: [...], ... } }
   const [discoveryCache, setDiscoveryCache] = useState<DiscoveryCache>({});
@@ -173,14 +175,23 @@ export const TripPage = () => {
     }));
   }, [tripId, starPlace]);
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!tripId) return;
-    if (confirm('Are you sure you want to delete this trip? This cannot be undone.')) {
-      const success = await deleteTrip(tripId);
-      if (success) {
-        navigate('/');
-      }
+    const success = await deleteTrip(tripId);
+    if (success) {
+      navigate('/');
+    } else {
+      // Keep modal open on error - user can try again or cancel
+      // You could add error state here if needed
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
   };
 
   if (tripLoading && !trip) {
@@ -226,7 +237,7 @@ export const TripPage = () => {
               <button className={styles.backBtn} onClick={() => navigate('/')}>
                 <ArrowLeft size={18} /> Back
               </button>
-              <button className={styles.deleteBtn} onClick={handleDelete}>
+              <button className={styles.deleteBtn} onClick={handleDeleteClick}>
                 <Trash2 size={16} />
               </button>
             </div>
@@ -295,6 +306,20 @@ export const TripPage = () => {
           onDiscover={handleDiscover}
           onStar={handleStar}
           discoveries={selectedActivityDiscoveries}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && trip && (
+        <ConfirmModal
+          isOpen={true}
+          title="Delete Trip?"
+          message={`Are you sure you want to delete "${trip.trip_title}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          variant="danger"
         />
       )}
     </div>
