@@ -18,7 +18,7 @@ export const LandingPage = () => {
   
   const [startDate, setStartDate] = useState('2026-01-10');
   const [endDate, setEndDate] = useState('2026-01-18');
-  const [budget, setBudget] = useState(3000);
+  const [budget, setBudget] = useState<string>('3000');
   const [origin, setOrigin] = useState('New York');
 
   const addDestination = () => {
@@ -39,11 +39,14 @@ export const LandingPage = () => {
       return;
     }
     
+    // Convert budget to number, defaulting to 0 if empty/invalid
+    const budgetNum = budget === '' ? 0 : Number(budget) || 0;
+    
     const prefs: TripPreferences = {
       destinations,
       start_date: new Date(startDate).toISOString(),
       end_date: new Date(endDate).toISOString(),
-      budget_limit: budget,
+      budget_limit: budgetNum,
       origin
     };
 
@@ -143,7 +146,23 @@ export const LandingPage = () => {
             <input 
               type="number" 
               value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
+              onKeyDown={(e) => {
+                // If value is "0" and user presses a digit, clear it first
+                if (budget === '0' && /^[0-9]$/.test(e.key)) {
+                  e.preventDefault();
+                  setBudget(e.key);
+                }
+              }}
+              onChange={(e) => {
+                const value = e.target.value;
+                setBudget(value);
+              }}
+              onBlur={(e) => {
+                // Ensure we have a valid number on blur, default to 0 if empty
+                if (e.target.value === '') {
+                  setBudget('0');
+                }
+              }}
               className={styles.input}
             />
           </div>
