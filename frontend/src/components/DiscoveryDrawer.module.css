@@ -328,3 +328,177 @@
   text-decoration: underline;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 0;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .header {
+    padding: 16px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+  }
+
+  .closeBtn, .refreshBtn {
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tabs {
+    padding: 12px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    padding: 8px 14px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .tabEmoji {
+    font-size: 16px;
+  }
+
+  .content {
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  /* Find Prompt */
+  .findPrompt {
+    padding: 32px 16px;
+  }
+
+  .findIcon {
+    font-size: 40px;
+  }
+
+  .findPrompt h3 {
+    font-size: 16px;
+  }
+
+  .findPrompt p {
+    font-size: 13px;
+  }
+
+  .findBtn {
+    padding: 14px 28px;
+    font-size: 15px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Results */
+  .resultsHeader {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .resultsHeader span {
+    font-size: 12px;
+  }
+
+  .regenerateBtn {
+    padding: 8px 14px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+
+  /* Place Cards */
+  .placeCard {
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+
+  .placeCard:active {
+    background: #f8fafc;
+  }
+
+  .placeName {
+    font-size: 15px;
+  }
+
+  .placeMeta {
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+
+  .placeAddress {
+    font-size: 12px;
+  }
+
+  .starBtn {
+    padding: 8px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .mapsLink {
+    font-size: 12px;
+    padding: 8px 0;
+    display: inline-flex;
+  }
+
+  /* Loading & Empty states */
+  .loading, .empty {
+    height: 160px;
+  }
+
+  .retryBtn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .header {
+    padding: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+
+  .tabs {
+    padding: 10px;
+  }
+
+  .tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .content {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .placeCard {
+    padding: 12px;
+  }
+}
+
