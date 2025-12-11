@@ -25,3 +25,37 @@
   flex-direction: column;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .section {
+    margin-bottom: 24px;
+  }
+
+  .header {
+    margin-bottom: 12px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .theme {
+    font-size: 13px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .section {
+    margin-bottom: 20px;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .theme {
+    font-size: 12px;
+  }
+}
+

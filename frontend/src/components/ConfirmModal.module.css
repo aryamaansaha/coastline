@@ -166,3 +166,50 @@
   opacity: 0.9;
 }
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .overlay {
+    padding: 16px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px;
+  }
+
+  .header {
+    padding: 20px 20px 14px;
+  }
+
+  .title {
+    font-size: 16px;
+  }
+
+  .closeBtn {
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .content {
+    padding: 16px 20px;
+  }
+
+  .message {
+    font-size: 14px;
+  }
+
+  .footer {
+    padding: 14px 20px 20px;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cancelBtn, .confirmBtn {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 15px;
+  }
+}
+
