@@ -152,7 +152,15 @@ export const TripMap = ({
 
   return (
     <div className={styles.mapWrapper}>
-      <MapContainer className={styles.map}>
+      <MapContainer 
+        className={styles.map}
+        // Mobile-friendly touch options
+        touchZoom={true}
+        dragging={true}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        zoomControl={true}
+      >
         <SetViewOnMount center={center} zoom={zoom} />
         
         <TileLayer
