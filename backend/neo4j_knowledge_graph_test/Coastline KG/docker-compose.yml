@@ -1,0 +1,12 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: coastline-falkordb
+    ports:
+      - "6379:6379"  # Redis protocol
+      - "3000:3000"  # FalkorDB browser UI
+    volumes:
+      - falkordb_data:/data
+
+volumes:
+  falkordb_data:
