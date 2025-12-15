@@ -2,7 +2,7 @@
 
 **AI-powered travel planning with human-in-the-loop refinement.**
 
-Coastline generates personalized multi-city itineraries using AI agents, letting you review, revise, and approve before finalizing. Discover nearby restaurants, bars, and cafes for each activity with Google Maps integration.
+Coastline generates personalized multi-city itineraries using AI agents, letting you review, revise, and approve before finalizing. Discover nearby restaurants, bars, and cafes for each activity with Google Maps integration. You can also star nearby restaurants, bars, and cafes for future reference. 
 
 ---
 
@@ -104,6 +104,10 @@ coastline/
 ```
 
 ---
+
+## Other Branches
+We have a few other branches. The budget-agent branch tests out the use of a pure ReAct agent workflow. HITL-feedback branch was one of our first tests of the improved human-in-the-loop feedback workflow. Lastly, we have a branch meant for a bug fix. 
+
 
 ## 🛠️ Tech Stack
 
