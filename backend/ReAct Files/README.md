@@ -4,6 +4,36 @@
 
 ---
 
+## File Organization and Importance
+
+### Core Project Files
+
+For the purposes of our main project presentation, the **most important files** are the initial core implementation files that provide the complete ReAct agent functionality:
+
+- **`budget_agent_services.py`**: The core agent service logic that implements the ReAct agent workflow. This file contains the `BudgetAgentService` class with all the planning, tool calling, parsing, and validation logic. This is the heart of the ReAct agent implementation.
+
+- **`budgetSchemas.py`**: The Pydantic data models that define the input (`TripBudget`) and output (`BudgetResult`, `BudgetBreakdown`) structures. These schemas ensure type safety and data validation throughout the agent execution.
+
+- **`budget.py`**: The FastAPI router endpoints that expose the agent functionality via HTTP API. This file provides the `/api/trip/generate-with-budget` and `/api/trip/validate-budget` endpoints that can be integrated into a larger application.
+
+- **`test_budget_agent.py`**: The test suite that demonstrates the agent's capabilities with various budget scenarios. This file shows how to use the agent and provides example test cases for tight budgets, generous budgets, and complex multi-city trips.
+
+These four files represent the **complete, functional ReAct agent implementation** that was used in our quantitative comparison study. They are self-contained and provide all the necessary functionality to run the ReAct agent and compare it against the HITL workflow.
+
+### Optional Extension Files
+
+The remaining files in this directory (`config.py`, `utils.py`, `experiment_runner.py`, `results_analyzer.py`, `comparison_runner.py`, `prompt_tester.py`, `report_generator.py`) are **optional extensions** that were developed to support more advanced experimental workflows, analysis, and tooling. These files enhance the experimental capabilities but are not required for the core ReAct agent functionality. They provide:
+
+- **Configuration Management**: Centralized experiment parameters and settings
+- **Utility Functions**: Helper functions for formatting, statistics, and data export
+- **Experiment Automation**: Automated execution of quantitative experiments
+- **Results Analysis**: Statistical analysis and comparison tools
+- **Advanced Tooling**: Comparison runners, prompt testing, and report generation
+
+These extension files are useful for researchers conducting detailed experimental analysis, but the core ReAct agent can function independently using only the four core files listed above.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -143,14 +173,17 @@ The agent follows a **conversational ReAct pattern**:
 ```
 ReAct Files/
 ├── README.md                    # This file
-├── budget.py                    # FastAPI router endpoints
-├── budgetSchemas.py            # Pydantic data models
-├── budget_agent_services.py     # Core agent service logic
-├── test_budget_agent.py         # Test suite with example scenarios
-├── config.py                    # Configuration and constants
-├── utils.py                     # Utility and helper functions
-├── experiment_runner.py          # Quantitative experiment runner
-├── results_analyzer.py          # Results analyzer and comparison tool
+├── budget.py                    # FastAPI router endpoints (CORE)
+├── budgetSchemas.py            # Pydantic data models (CORE)
+├── budget_agent_services.py     # Core agent service logic (CORE)
+├── test_budget_agent.py         # Test suite with example scenarios (CORE)
+├── config.py                    # Configuration and constants (EXTENSION)
+├── utils.py                     # Utility and helper functions (EXTENSION)
+├── experiment_runner.py          # Quantitative experiment runner (EXTENSION)
+├── results_analyzer.py          # Results analyzer and comparison tool (EXTENSION)
+├── comparison_runner.py         # Side-by-side ReAct vs HITL comparison (EXTENSION)
+├── prompt_tester.py             # Prompt variation testing (EXTENSION)
+├── report_generator.py           # Publication-ready report generation (EXTENSION)
 └── experiment_results/          # Output directory for experiment data
 ```
 
@@ -166,6 +199,9 @@ ReAct Files/
 | `utils.py` | Utilities | Formatting, statistics, data export, comparison functions |
 | `experiment_runner.py` | Experiment automation | Automated 10-run quantitative experiment execution |
 | `results_analyzer.py` | Analysis & comparison | Statistical analysis, HITL comparison, report generation |
+| `comparison_runner.py` | Side-by-side comparison | Direct A/B testing of ReAct vs HITL with identical inputs |
+| `prompt_tester.py` | Prompt engineering | Systematic testing of different prompt variations |
+| `report_generator.py` | Report generation | Publication-ready reports in markdown and LaTeX formats |
 
 ---
 
@@ -1545,15 +1581,335 @@ The module can be extended for more sophisticated analysis:
 
 ---
 
+## Additional Experimental Tools
+
+This section documents additional experimental tools that extend the core functionality with specialized capabilities for comparison, prompt engineering, and report generation. These tools are optional extensions that enhance the experimental workflow but are not required for the core ReAct agent functionality.
+
+### 5. Comparison Runner (`comparison_runner.py`)
+
+The comparison runner module provides the capability to run both the ReAct agent and HITL workflow side-by-side with identical inputs, enabling direct A/B testing and comprehensive comparative analysis. This tool is essential for understanding the performance differences between the two approaches under identical experimental conditions.
+
+#### Purpose and Motivation
+
+While the quantitative experiment provides aggregate statistics comparing the two approaches, the comparison runner enables **direct side-by-side comparison** of individual runs. This allows researchers to:
+
+- **Observe Direct Differences**: See exactly how each approach handles the same input
+- **Identify Specific Failure Modes**: Understand why one approach succeeds where the other fails
+- **Compare Execution Patterns**: Analyze differences in city ordering, day allocation, and cost optimization strategies
+- **Validate Experimental Findings**: Confirm that aggregate statistics reflect consistent patterns
+
+#### Core Functionality
+
+**`run_comparison(budget, hitl_result_file=None, hitl_api_url=None, save_report=True)`**
+
+This is the main function that orchestrates the side-by-side comparison. It:
+
+1. **Runs ReAct Agent**: Executes the ReAct agent with the provided `TripBudget` configuration using `BudgetAgentService.plan_trip_with_budget()`
+2. **Retrieves HITL Result**: Uses one of two methods:
+   - **JSON File**: Loads a previously saved HITL result from a JSON file (recommended for reproducibility)
+   - **HTTP API**: Calls the HITL workflow via HTTP API if the backend is running (requires backend to be accessible)
+3. **Generates Comparison Report**: Creates a detailed markdown report comparing the two results
+4. **Saves Output**: Automatically saves the comparison report to the output directory
+
+The function returns a dictionary containing both results and the generated report, enabling programmatic access to comparison data.
+
+**`run_react_agent(budget)`**
+
+Executes the ReAct agent with comprehensive logging and result formatting. This function wraps the `BudgetAgentService.plan_trip_with_budget()` call and provides formatted output using `utils.format_result_summary()`.
+
+**`load_hitl_from_json(filename)`**
+
+Loads a HITL result from a JSON file. This function:
+- Handles multiple JSON structures (direct arrays, wrapped formats, etc.)
+- Validates the JSON structure
+- Converts JSON dictionaries to `BudgetResult` Pydantic objects
+- Provides error handling for missing or corrupted files
+
+This method is recommended for reproducibility, as it ensures consistent comparison conditions.
+
+**`create_comparison_report(react_result, hitl_result, react_stats=None, hitl_stats=None)`**
+
+Generates a comprehensive markdown-formatted comparison report that includes:
+
+- **ReAct Results Section**: Complete breakdown of ReAct agent performance including success status, iterations, cost breakdown, city order, and budget compliance
+- **HITL Results Section**: Complete breakdown of HITL workflow performance (if available)
+- **Direct Comparison Table**: Side-by-side comparison of key metrics:
+  - Success status (which approach succeeded)
+  - Iterations used (which used fewer iterations)
+  - Total cost (which found a cheaper solution)
+- **Statistical Comparison**: If statistics are provided, includes detailed statistical comparison tables
+- **Conclusion**: Summary assessment of which approach performed better
+
+The report is designed to be self-contained and suitable for inclusion in documentation or presentations.
+
+#### Usage Examples
+
+**Basic Comparison with JSON File**:
+```python
+from comparison_runner import run_comparison
+from app.schemas.budget import TripBudget
+
+budget = TripBudget(
+    origin="MAD",
+    destinations=["ATH", "ROM"],
+    departure_date="2026-01-01",
+    return_date="2026-01-10",
+    adults=2,
+    flight_budget=1500.0,
+    hotel_budget=1200.0,
+    activity_budget=400.0,
+    max_iterations=5
+)
+
+result = await run_comparison(
+    budget,
+    hitl_result_file="hitl_results_20250115.json"
+)
+```
+
+**Command-Line Usage**:
+```bash
+python "ReAct Files/comparison_runner.py" --config experiment --hitl-json hitl_results.json
+```
+
+#### Integration with Other Tools
+
+The comparison runner integrates seamlessly with:
+- **`experiment_runner.py`**: Can be used to generate HITL results for comparison
+- **`results_analyzer.py`**: Can provide statistical context for comparisons
+- **`report_generator.py`**: Comparison reports can be included in publication-ready reports
+
+#### Limitations and Considerations
+
+- **HITL API Integration**: Full SSE stream parsing is not implemented. Use JSON file method for reliable comparisons
+- **Timing**: Both approaches are run sequentially, not in parallel, so timing comparisons may not be accurate
+- **Reproducibility**: For true reproducibility, ensure HITL results are generated with identical configuration
+
+---
+
+### 6. Prompt Tester (`prompt_tester.py`)
+
+The prompt tester module enables systematic testing of different prompt variations to understand their impact on agent performance. This tool is essential for prompt engineering, optimizing agent behavior, and understanding how prompt design affects constraint satisfaction and success rates.
+
+#### Purpose and Research Value
+
+Prompt engineering is a critical aspect of LLM agent development. This tool enables:
+
+- **Systematic Testing**: Compare multiple prompt variations under controlled conditions
+- **Performance Optimization**: Identify prompts that improve success rates
+- **Constraint Understanding**: Test how different prompt phrasings affect constraint adherence
+- **A/B Testing**: Rigorous comparison of prompt effectiveness
+
+#### Core Functionality
+
+**Predefined Prompt Variations**
+
+The module includes three predefined prompt variations:
+
+1. **Default**: Standard budget-conscious prompt with clear instructions. This is the prompt used in the core implementation, emphasizing budget constraints and requiring completion of all searches before providing a summary.
+
+2. **Strict**: Emphasizes that budget constraints are HARD LIMITS that MUST NOT be exceeded. This variation uses stronger language to enforce constraint adherence, explicitly stating that constraints are "MANDATORY" and "CANNOT BE EXCEEDED". This prompt is designed to test whether stronger language improves constraint satisfaction.
+
+3. **Flexible**: More lenient prompt that allows slight budget overruns. This variation treats budget constraints as guidelines rather than hard limits, stating that "being slightly over is okay if it's a good plan". This prompt tests whether flexibility improves overall planning quality at the cost of constraint adherence.
+
+**`PromptTester` Class**
+
+Provides methods for:
+- **`test_prompt_variation()`**: Test a specific prompt variation multiple times with a given budget configuration
+- **`compare_prompts()`**: Compare results across different prompt variations, computing success rates, average iterations, and over-budget amounts for each
+- **`generate_prompt_comparison_report()`**: Generate detailed comparison reports showing which prompts perform best
+
+**`test_all_prompts(budget, num_runs_per_prompt=5, prompt_names=None)`**
+
+Tests all (or specified) prompt variations and generates a comprehensive comparison report. This function:
+- Runs each prompt variation the specified number of times
+- Collects results for each variation
+- Computes statistics for each variation
+- Generates a comparison report showing relative performance
+
+#### Usage Examples
+
+**Test All Prompts**:
+```python
+from prompt_tester import test_all_prompts
+from app.schemas.budget import TripBudget
+from config import get_experiment_config
+
+config = get_experiment_config()
+budget = TripBudget(**config)
+
+results = await test_all_prompts(budget, num_runs_per_prompt=10)
+```
+
+**Test Specific Prompts**:
+```python
+results = await test_all_prompts(
+    budget,
+    num_runs_per_prompt=5,
+    prompt_names=["default", "strict"]
+)
+```
+
+**Command-Line Usage**:
+```bash
+# Test all prompts
+python "ReAct Files/prompt_tester.py" --runs 10
+
+# Test specific prompts
+python "ReAct Files/prompt_tester.py" --runs 5 --prompts default strict
+```
+
+#### Prompt Comparison Report
+
+The tool generates a comprehensive report that includes:
+
+- **Summary Table**: Success rate, average iterations, and average over-budget amount for each prompt variation
+- **Detailed Results**: Per-prompt statistics including success rate by iteration count and violation patterns
+- **Best Performing Prompt**: Identification of the prompt variation with the highest success rate
+
+#### Limitations and Future Enhancements
+
+**Current Limitations**:
+- Prompt testing requires modification of `BudgetAgentService.run_single_iteration()` to accept custom prompts
+- Current implementation runs with default prompts and documents the approach for future enhancement
+
+**Future Enhancements**:
+- Modify `BudgetAgentService` to accept prompt parameters
+- Add more prompt variations (e.g., "concise", "detailed", "example-based")
+- Test prompt combinations (different system + user prompts)
+- Analyze prompt impact on specific failure modes
+- Test prompt variations with different budget tightness levels
+
+#### Integration Patterns
+
+The prompt tester integrates with:
+- **`config.py`**: Uses experiment configuration for consistent testing
+- **`utils.py`**: Uses statistics and export functions
+- **`results_analyzer.py`**: Can analyze prompt test results for deeper insights
+
+---
+
+### 7. Report Generator (`report_generator.py`)
+
+The report generator module creates publication-ready reports suitable for academic papers, documentation, and presentations. This tool formats experimental results in a professional, structured manner with proper sections, tables, and statistical analysis.
+
+#### Purpose and Documentation
+
+Publication-ready reports are essential for:
+
+- **Academic Papers**: Formatted results for research publications
+- **Documentation**: Comprehensive project documentation
+- **Presentations**: Professional result summaries
+- **Sharing**: Easy-to-read reports for stakeholders
+
+#### Core Functionality
+
+**`generate_publication_report(react_results, hitl_results=None, title=..., author=..., save_latex=False)`**
+
+Generates a comprehensive publication-ready report with:
+
+- **Title and Metadata**: Report title, author, and generation date
+- **Abstract**: High-level summary of findings, including key statistics and conclusions
+- **Introduction**: Context and motivation for the comparative study
+- **Methodology**: Detailed experimental setup including:
+  - Total number of runs
+  - Test case specifications (origin, destinations, budget)
+  - Evaluation metrics used
+- **Results**: Detailed results section with:
+  - ReAct agent performance metrics in table format
+  - Comparison with HITL workflow (if HITL results provided)
+  - Statistical comparisons
+- **Discussion**: Interpretation of results, explaining what the findings mean and why they matter
+- **Conclusion**: Summary of key takeaways and implications for agent design
+- **References**: Citation information for related work
+
+The report follows academic paper structure and formatting conventions.
+
+**`convert_to_latex(markdown, title, author)`**
+
+Converts markdown report to LaTeX format for:
+- Academic paper submission
+- Professional typesetting
+- PDF generation using LaTeX compilers
+
+The LaTeX conversion handles:
+- Section headings (using `\section`, `\subsection`, `\subsubsection`)
+- Tables (using `longtable` package for multi-page tables)
+- Basic formatting (text, emphasis, etc.)
+
+The generated LaTeX can be compiled to PDF using standard LaTeX tools like `pdflatex`.
+
+#### Usage Examples
+
+**Generate Report**:
+```python
+from report_generator import generate_publication_report
+from results_analyzer import load_results_from_json
+
+react_results = load_results_from_json("react_results.json")
+hitl_results = load_results_from_json("hitl_results.json")
+
+report = generate_publication_report(
+    react_results,
+    hitl_results,
+    title="Comparative Analysis of Agentic Architectures for Constraint-Heavy Planning",
+    author="Research Team",
+    save_latex=True
+)
+```
+
+**Command-Line Usage**:
+```bash
+# Generate markdown report
+python "ReAct Files/report_generator.py" \
+    --react-json react_results.json \
+    --hitl-json hitl_results.json \
+    --title "My Research Report" \
+    --author "Research Team"
+
+# Generate with LaTeX
+python "ReAct Files/report_generator.py" \
+    --react-json react_results.json \
+    --hitl-json hitl_results.json \
+    --latex
+```
+
+#### Report Structure
+
+The generated reports follow standard academic paper structure:
+
+1. **Abstract**: Concise summary of the study, methods, and key findings (typically 150-250 words)
+2. **Introduction**: Background, motivation, and research questions
+3. **Methodology**: Experimental design, test cases, and evaluation metrics
+4. **Results**: Data presentation with tables and statistics
+5. **Discussion**: Interpretation of results, implications, and limitations
+6. **Conclusion**: Summary of findings and future directions
+7. **References**: Citations for related work and methodologies
+
+#### Integration with Other Tools
+
+The report generator integrates seamlessly with:
+- **`results_analyzer.py`**: Uses analysis functions to generate statistics
+- **`comparison_runner.py`**: Can incorporate side-by-side comparison results
+- **`experiment_runner.py`**: Can generate reports from automated experiment results
+
+#### Output Formats
+
+The tool generates reports in multiple formats:
+
+- **Markdown**: Human-readable format suitable for GitHub, documentation sites, and general sharing
+- **LaTeX**: Professional typesetting format for academic papers (optional, requires `--latex` flag)
+
+Both formats are saved to the `experiment_results/` directory with timestamps for easy organization.
+
+---
+
 ## Additional Resources
 
 - **Main Codebase Documentation**: `backend/docs/AGENT_GRAPH.md` (HITL workflow)
 - **MCP Server**: `backend/mcp/server.py` (Amadeus API integration)
-- **Test Suite**: `test_budget_agent.py` (example scenarios)
-- **Configuration**: `config.py` (experiment parameters and settings)
-- **Utilities**: `utils.py` (helper functions for formatting and analysis)
-- **Experiment Runner**: `experiment_runner.py` (automated experiment execution)
-- **Results Analyzer**: `results_analyzer.py` (statistical analysis and comparison)
+- **Core Files**: `budget.py`, `budgetSchemas.py`, `budget_agent_services.py`, `test_budget_agent.py` (complete ReAct agent implementation)
+- **Extension Files**: `config.py`, `utils.py`, `experiment_runner.py`, `results_analyzer.py`, `comparison_runner.py`, `prompt_tester.py`, `report_generator.py` (optional experimental tools)
 
 ---
 
