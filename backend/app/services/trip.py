@@ -217,12 +217,12 @@ class TripService:
     def list_trips(db) -> list[TripSummary]:
         """
         List all trips with summary information.
-        
+
         Returns list of TripSummary objects (not full itineraries).
         """
         # Get all itineraries, sorted by most recent first
         docs = db.itineraries.find().sort("created_at", -1)
-        
+
         summaries = []
         for doc in docs:
             # Extract unique cities from days
@@ -232,7 +232,7 @@ class TripService:
                 city = day.get("city", "")
                 if city and city not in destinations:
                     destinations.append(city)
-            
+
             summaries.append(TripSummary(
                 trip_id=doc.get("trip_id", ""),
                 trip_title=doc.get("trip_title", "Untitled Trip"),
@@ -242,5 +242,66 @@ class TripService:
                 created_at=doc.get("created_at"),
                 updated_at=doc.get("updated_at")
             ))
-        
+
+        return summaries
+
+    @staticmethod
+    def save_itinerary_with_user(db, itinerary: Itinerary, user_id: str | None) -> str:
+        """
+        Save itinerary to MongoDB with optional user_id.
+
+        Args:
+            db: Database instance
+            itinerary: Itinerary object to save
+            user_id: User ID (None for guest trips)
+
+        Returns:
+            trip_id of saved itinerary
+        """
+        doc = itinerary.model_dump()
+        doc["created_at"] = datetime.now()
+        doc["updated_at"] = datetime.now()
+
+        # Add user_id if provided (None for guest trips)
+        if user_id:
+            doc["user_id"] = user_id
+
+        # Upsert to handle both create and update
+        db.itineraries.update_one(
+            {"trip_id": itinerary.trip_id},
+            {"$set": doc},
+            upsert=True
+        )
+        return itinerary.trip_id
+
+    @staticmethod
+    def list_trips_for_user(db, user_id: str) -> list[TripSummary]:
+        """
+        List all trips for a specific user.
+
+        Returns list of TripSummary objects (not full itineraries).
+        """
+        # Get all itineraries for this user, sorted by most recent first
+        docs = db.itineraries.find({"user_id": user_id}).sort("created_at", -1)
+
+        summaries = []
+        for doc in docs:
+            # Extract unique cities from days
+            destinations = []
+            days = doc.get("days", [])
+            for day in days:
+                city = day.get("city", "")
+                if city and city not in destinations:
+                    destinations.append(city)
+
+            summaries.append(TripSummary(
+                trip_id=doc.get("trip_id", ""),
+                trip_title=doc.get("trip_title", "Untitled Trip"),
+                budget_limit=doc.get("budget_limit", 0.0),
+                destinations=destinations,
+                num_days=len(days),
+                created_at=doc.get("created_at"),
+                updated_at=doc.get("updated_at")
+            ))
+
         return summaries

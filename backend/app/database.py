@@ -61,6 +61,16 @@ def initialize_indexes():
         ("checkpoint_ns", ASCENDING)
     ], unique=True)
     db.agent_checkpoints.create_index([("thread_id", ASCENDING)])
-    
+
+    # Users collection (authentication)
+    db.users.create_index([("email", ASCENDING)], unique=True)
+    db.users.create_index([("user_id", ASCENDING)], unique=True)
+    db.users.create_index([("created_at", ASCENDING)])
+
+    # Add user_id indexes to existing collections for ownership queries
+    db.itineraries.create_index([("user_id", ASCENDING)])
+    db.sessions.create_index([("user_id", ASCENDING)])
+    db.discoveries.create_index([("user_id", ASCENDING)])
+
     print("✅ MongoDB indexes initialized")
 
