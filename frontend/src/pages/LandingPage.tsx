@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrip } from '../context/TripContext';
+import { useAuth } from '../context/AuthContext';
 import { useTripStream } from '../hooks/useTripStream';
 import type { TripPreferences } from '../types';
 import { Plane, Calendar, Wallet, MapPin, X, ArrowLeft, Plus } from 'lucide-react';
@@ -10,6 +11,7 @@ import styles from './LandingPage.module.css';
 export const LandingPage = () => {
   const navigate = useNavigate();
   const { setPreferences } = useTrip();
+  const { isAuthenticated } = useAuth();
   const { startGeneration } = useTripStream();
 
   // Local state for form
@@ -57,10 +59,12 @@ export const LandingPage = () => {
   return (
     <div className={styles.container}>
       <div className={styles.card}>
-        <div className={styles.backLink} onClick={() => navigate('/')}>
-          <ArrowLeft size={16} /> Back to trips
-        </div>
-        
+        {isAuthenticated && (
+          <div className={styles.backLink} onClick={() => navigate('/trips')}>
+            <ArrowLeft size={16} /> My Trips
+          </div>
+        )}
+
         <div className={styles.logoWrapper}>
           <Logo size="lg" />
         </div>

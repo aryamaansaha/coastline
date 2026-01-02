@@ -92,7 +92,7 @@ export const TripsListPage = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   return (

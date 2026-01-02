@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,9 +13,10 @@
 }
 
 .modalCard {
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
   padding: 40px;
   width: 100%;
   max-width: 440px;
@@ -32,14 +33,14 @@
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #999;
+  color: var(--text-muted);
   padding: 4px 8px;
   line-height: 1;
   transition: color 0.2s;
 }
 
 .closeButton:hover {
-  color: #333;
+  color: var(--text);
 }
 
 .modalHeader {
@@ -50,13 +51,13 @@
 .modalTitle {
   font-size: 24px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text);
   margin: 0 0 8px 0;
 }
 
 .modalSubtitle {
   font-size: 14px;
-  color: #666;
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -64,7 +65,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--border);
 }
 
 .tab {
@@ -77,17 +78,17 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  color: #666;
+  color: var(--text-muted);
   transition: all 0.2s;
 }
 
 .tab:hover {
-  color: #333;
+  color: var(--text);
 }
 
 .tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 .form {
@@ -105,52 +106,53 @@
 .formLabel {
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--text);
 }
 
 .formInput {
   padding: 10px 14px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   transition: all 0.2s;
   outline: none;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .formInput:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .formInput:disabled {
-  background: #f5f5f5;
+  background: var(--bg);
   cursor: not-allowed;
 }
 
 .errorMessage {
-  color: #ef4444;
+  color: var(--accent-red);
   font-size: 12px;
-  background: #fee;
+  background: #fee2e2;
   padding: 10px;
   border-radius: 6px;
 }
 
 .submitButton {
   padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--text);
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: opacity 0.2s;
   margin-top: 8px;
 }
 
 .submitButton:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  opacity: 0.9;
 }
 
 .submitButton:disabled {
@@ -160,8 +162,8 @@
 
 .passwordHints {
   font-size: 12px;
-  color: #666;
-  background: #f5f5f5;
+  color: var(--text-muted);
+  background: var(--bg);
   padding: 10px;
   border-radius: 6px;
   margin-top: 4px;

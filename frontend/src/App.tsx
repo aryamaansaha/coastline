@@ -171,14 +171,17 @@ function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-        {/* Home / My Trips - Protected */}
-        <Route path="/" element={
+        {/* Landing Page - Public (guest access) */}
+        <Route path="/" element={<PlanningFlow />} />
+
+        {/* My Trips - Protected */}
+        <Route path="/trips" element={
           <PrivateRoute>
             <TripsListPage />
           </PrivateRoute>
         } />
 
-        {/* New Trip Planning Flow - Unprotected for guest access */}
+        {/* New Trip Planning Flow - Public (guest access) */}
         <Route path="/new" element={<PlanningFlow />} />
 
         {/* View Saved Trip - Protected */}
