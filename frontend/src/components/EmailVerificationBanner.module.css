@@ -1,0 +1,96 @@
+.banner {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #78350f;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.message {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.message strong {
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resendButton {
+  padding: 6px 14px;
+  background: white;
+  color: #78350f;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.resendButton:hover:not(:disabled) {
+  background: #fffbeb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.resendButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #78350f;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+.successMessage {
+  font-size: 13px;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.errorMessage {
+  font-size: 13px;
+  color: #991b1b;
+  background: #fee2e2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}

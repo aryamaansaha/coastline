@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, MapPin, Wallet, ChevronRight, Trash2, Loader, X } from 'lucide-react';
+import { Plus, Calendar, MapPin, Wallet, ChevronRight, Trash2, Loader, X, LogOut } from 'lucide-react';
 import { useTrips, type TripSummary } from '../hooks/useApi';
 import { useTrip } from '../context/TripContext';
+import { useAuth } from '../context/AuthContext';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { EmailVerificationBanner } from '../components/EmailVerificationBanner';
 import { Logo } from '../components/Logo';
 import { sessionStorage } from '../utils/sessionStorage';
 import styles from './TripsListPage.module.css';
@@ -12,6 +14,7 @@ export const TripsListPage = () => {
   const navigate = useNavigate();
   const { listTrips, deleteTrip, loading } = useTrips();
   const { activeSession, hasActiveSession, resetTrip } = useTrip();
+  const { logout } = useAuth();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
   const [elapsedTime, setElapsedTime] = useState('');
@@ -87,12 +90,27 @@ export const TripsListPage = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className={styles.container}>
+      <EmailVerificationBanner />
+
       <div className={styles.topBar}>
         <Logo size="md" />
+        <button
+          className={styles.logoutBtn}
+          onClick={handleLogout}
+          title="Logout"
+        >
+          <LogOut size={18} />
+          Logout
+        </button>
       </div>
-      
+
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Your Trips</h1>

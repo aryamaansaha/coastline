@@ -2,6 +2,19 @@ import { useState, useCallback } from 'react';
 import type { Itinerary, DiscoveredPlace, DiscoveryType } from '../types';
 
 const API_BASE = '/api';
+const TOKEN_KEY = 'coastline_token';
+
+// Helper to get auth headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // --- Trip API ---
 export const useTrips = () => {
@@ -12,7 +25,9 @@ export const useTrips = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/trip/${tripId}`);
+      const res = await fetch(`${API_BASE}/trip/${tripId}`, {
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error('Trip not found');
       return await res.json();
     } catch (err: any) {
@@ -27,7 +42,9 @@ export const useTrips = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/trips`);
+      const res = await fetch(`${API_BASE}/trips`, {
+        headers: getAuthHeaders()
+      });
       if (!res.ok) throw new Error('Failed to fetch trips');
       return await res.json();
     } catch (err: any) {
@@ -40,14 +57,29 @@ export const useTrips = () => {
 
   const deleteTrip = useCallback(async (tripId: string): Promise<boolean> => {
     try {
-      const res = await fetch(`${API_BASE}/trip/${tripId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/trip/${tripId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       return res.ok;
     } catch {
       return false;
     }
   }, []);
 
-  return { getTrip, listTrips, deleteTrip, loading, error };
+  const claimTrip = useCallback(async (tripId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/trip/${tripId}/claim`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  return { getTrip, listTrips, deleteTrip, claimTrip, loading, error };
 };
 
 // --- Discovery API ---
@@ -65,13 +97,16 @@ export const useDiscovery = () => {
     setError(null);
     try {
       const url = `${API_BASE}/trip/${tripId}/activities/${activityId}/discover/${placeType}?regenerate=${regenerate}`;
-      const res = await fetch(url, { method: 'POST' });
-      
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.detail || 'Discovery failed');
       }
-      
+
       return await res.json();
     } catch (err: any) {
       setError(err.message);
@@ -90,12 +125,12 @@ export const useDiscovery = () => {
   ): Promise<DiscoveredPlace | null> => {
     try {
       const url = `${API_BASE}/trip/${tripId}/activities/${activityId}/discover/${placeType}/${placeId}/star`;
-      const res = await fetch(url, { 
+      const res = await fetch(url, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ starred })
       });
-      
+
       if (!res.ok) return null;
       return await res.json();
     } catch {
@@ -105,7 +140,9 @@ export const useDiscovery = () => {
 
   const getAllDiscoveries = useCallback(async (tripId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/trip/${tripId}/discoveries`);
+      const res = await fetch(`${API_BASE}/trip/${tripId}/discoveries`, {
+        headers: getAuthHeaders()
+      });
       if (!res.ok) return [];
       return await res.json();
     } catch {

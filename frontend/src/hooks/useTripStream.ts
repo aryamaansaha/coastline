@@ -4,6 +4,20 @@ import type { TripPreferences } from '../types';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { sessionStorage } from '../utils/sessionStorage';
 
+const TOKEN_KEY = 'coastline_token';
+
+// Helper to get auth headers
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 // Custom error to signal we should stop retrying
 class FatalError extends Error {}
 
@@ -133,7 +147,7 @@ export const useTripStream = () => {
       // First, check if the request will succeed (handle validation errors)
       const response = await fetch('/api/trip/generate/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(prefs),
         signal: controller.signal,
       });
@@ -176,7 +190,7 @@ export const useTripStream = () => {
       // If we get here, response is OK - now open SSE stream
       await fetchEventSource('/api/trip/generate/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(prefs),
         signal: controller.signal,
         onmessage: handleMessage,
@@ -227,7 +241,7 @@ export const useTripStream = () => {
     try {
       await fetchEventSource(`/api/trip/session/${sessionId}/decide`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action, feedback, new_budget: newBudget }),
         signal: controller.signal,
         onmessage: handleMessage,
@@ -265,8 +279,10 @@ export const useTripStream = () => {
 
     try {
       // Check session status first
-      const statusRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
-      
+      const statusRes = await fetch(`/api/trip/session/${savedSessionId}/status`, {
+        headers: getAuthHeaders()
+      });
+
       if (!statusRes.ok) {
         // Session no longer exists
         setStreamError('Session expired. Please start a new trip.');
@@ -314,7 +330,9 @@ export const useTripStream = () => {
       // Poll for updates
       const pollInterval = setInterval(async () => {
         try {
-          const pollRes = await fetch(`/api/trip/session/${savedSessionId}/status`);
+          const pollRes = await fetch(`/api/trip/session/${savedSessionId}/status`, {
+            headers: getAuthHeaders()
+          });
           if (!pollRes.ok) {
             clearInterval(pollInterval);
             setStreamError('Session lost');

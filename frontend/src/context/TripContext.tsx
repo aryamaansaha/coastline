@@ -5,10 +5,10 @@ import { sessionStorage, type ActiveSession } from '../utils/sessionStorage';
 interface TripContextType {
   preferences: TripPreferences | null;
   setPreferences: (prefs: TripPreferences) => void;
-  
+
   sessionId: string | null;
   setSessionId: (id: string | null) => void;
-  
+
   // SSE State
   isStreaming: boolean;
   setIsStreaming: (streaming: boolean) => void;
@@ -16,11 +16,11 @@ interface TripContextType {
   setStreamStatus: (status: string) => void;
   streamError: string | null;
   setStreamError: (err: string | null) => void;
-  
+
   // HITL State
   preview: TripPreview | null;
   setPreview: (preview: TripPreview | null) => void;
-  
+
   // Final Result
   finalTripId: string | null;
   setFinalTripId: (id: string | null) => void;
@@ -30,7 +30,13 @@ interface TripContextType {
   setStartedAt: (time: number | null) => void;
   activeSession: ActiveSession | null;
   hasActiveSession: boolean;
-  
+
+  // Guest flow
+  showSignupModal: boolean;
+  setShowSignupModal: (show: boolean) => void;
+  pendingTripId: string | null;
+  setPendingTripId: (id: string | null) => void;
+
   resetTrip: () => void;
   restoreSession: () => ActiveSession | null;
 }
@@ -47,6 +53,10 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
   const [finalTripId, setFinalTripId] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
+
+  // Guest flow state
+  const [showSignupModal, setShowSignupModal] = useState<boolean>(false);
+  const [pendingTripId, setPendingTripId] = useState<string | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -126,6 +136,8 @@ export const TripProvider = ({ children }: { children: ReactNode }) => {
       startedAt, setStartedAt,
       activeSession,
       hasActiveSession,
+      showSignupModal, setShowSignupModal,
+      pendingTripId, setPendingTripId,
       resetTrip,
       restoreSession
     }}>

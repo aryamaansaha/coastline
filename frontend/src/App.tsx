@@ -1,16 +1,27 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { useTrip } from './context/TripContext';
+import { useAuth } from './context/AuthContext';
+import { useTrips } from './hooks/useApi';
 import { LandingPage } from './pages/LandingPage';
 import { LoadingPage } from './pages/LoadingPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { TripPage } from './pages/TripPage';
 import { TripsListPage } from './pages/TripsListPage';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { PrivateRoute } from './components/PrivateRoute';
+import { SignupModal } from './components/SignupModal';
 
 // Main content component that handles the planning flow state
 function PlanningFlow() {
   const navigate = useNavigate();
-  const { isStreaming, preview, finalTripId, streamError, resetTrip, sessionId, hasActiveSession, restoreSession } = useTrip();
+  const { isStreaming, preview, finalTripId, streamError, resetTrip, sessionId, hasActiveSession, restoreSession, showSignupModal, setShowSignupModal, pendingTripId, setPendingTripId } = useTrip();
+  const { isAuthenticated } = useAuth();
+  const { claimTrip } = useTrips();
   const hasCheckedSession = useRef(false);
 
   // Check for existing session on mount
@@ -44,6 +55,40 @@ function PlanningFlow() {
       resetTrip();
     }
   }, [preview, sessionId, isStreaming, resetTrip]);
+
+  // Guest flow: Show signup modal when guest completes trip
+  useEffect(() => {
+    if (finalTripId && !isAuthenticated) {
+      console.log('Guest trip completed, showing signup modal');
+      setPendingTripId(finalTripId);
+      setShowSignupModal(true);
+    }
+  }, [finalTripId, isAuthenticated, setPendingTripId, setShowSignupModal]);
+
+  // Handle signup success
+  const handleSignupSuccess = async () => {
+    if (pendingTripId) {
+      console.log('Claiming trip:', pendingTripId);
+      const success = await claimTrip(pendingTripId);
+      if (success) {
+        console.log('Trip claimed successfully');
+      }
+    }
+    setShowSignupModal(false);
+    setPendingTripId(null);
+    // Navigate to trip page
+    if (pendingTripId) {
+      navigate(`/trip?id=${pendingTripId}`, { replace: true });
+    }
+    resetTrip();
+  };
+
+  // Handle signup modal close (user dismisses)
+  const handleSignupClose = () => {
+    setShowSignupModal(false);
+    // Don't reset pendingTripId yet - user might still want to view the trip
+    // Navigation will happen naturally from the existing finalTripId effect
+  };
 
   // If trip is complete, show loading while navigating
   if (finalTripId) {
@@ -102,22 +147,47 @@ function PlanningFlow() {
   }
 
   // Default: Landing (new trip form)
-  return <LandingPage />;
+  return (
+    <>
+      <LandingPage />
+      <SignupModal
+        isOpen={showSignupModal}
+        onClose={handleSignupClose}
+        onSuccess={handleSignupSuccess}
+        tripId={pendingTripId}
+      />
+    </>
+  );
 }
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Home / My Trips */}
-        <Route path="/" element={<TripsListPage />} />
-        
-        {/* New Trip Planning Flow */}
+        {/* Auth Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+        {/* Home / My Trips - Protected */}
+        <Route path="/" element={
+          <PrivateRoute>
+            <TripsListPage />
+          </PrivateRoute>
+        } />
+
+        {/* New Trip Planning Flow - Unprotected for guest access */}
         <Route path="/new" element={<PlanningFlow />} />
-        
-        {/* View Saved Trip */}
-        <Route path="/trip" element={<TripPage />} />
-        
+
+        {/* View Saved Trip - Protected */}
+        <Route path="/trip" element={
+          <PrivateRoute>
+            <TripPage />
+          </PrivateRoute>
+        } />
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
