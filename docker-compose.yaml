@@ -18,12 +18,26 @@ services:
       dockerfile: Dockerfile
     container_name: coastline-backend
     restart: unless-stopped
+    ports:
+      - "8008:8008"  # Expose backend for testing
     env_file:
       - ./.env
     environment:
       # Container-specific overrides (these take precedence over env_file)
       - MONGODB_URI=mongodb://mongodb:27017/
       - BACKEND_PORT=8008
+      # Pass through SMTP config from .env
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - FRONTEND_URL=${FRONTEND_URL}
+      # Pass through JWT config
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
     depends_on:
       - mongodb
     networks:
