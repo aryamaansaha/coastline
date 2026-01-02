@@ -120,6 +120,7 @@ class Itinerary(ItineraryLLMCreate):
     days: list[Day]
     budget_limit: float
     geocoding_status: GeocodingStatus | None = None
+    user_id: str | None = None  # None for guest trips, set after authentication
 
 
 # ============================================================================

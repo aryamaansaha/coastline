@@ -32,9 +32,11 @@ from app.schemas.session import (
     HumanDecision,
     SSEEventType
 )
+from app.schemas.user import UserInDB
 from app.services.session import SessionService, MongoDBCheckpointer
 from app.services.trip import TripService
 from app.services.geocode import LocalizeService
+from app.dependencies.auth import get_current_user
 from app.database import get_db
 
 # Add backend dir to path for agent import
@@ -88,17 +90,21 @@ async def get_mcp_tools():
 async def generate_trip_stream(
     preferences: Preferences,
     request: Request,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: UserInDB | None = Depends(get_current_user)
 ):
     """
     Start trip generation with SSE streaming.
-    
+
+    Supports GUEST FLOW: Authentication is optional. Guests can generate
+    one trip and view it, but must sign up to save or generate another.
+
     Returns an SSE stream with events:
     - status: Progress updates
     - awaiting_approval: HITL checkpoint reached (includes preview)
     - complete: Generation finished successfully
     - error: Something went wrong
-    
+
     Frontend should:
     1. Open SSE connection
     2. Listen for events
@@ -160,12 +166,15 @@ async def generate_trip_stream(
                     # Geocode and save final itinerary
                     itinerary_dict = event_data.get("itinerary")
                     final_budget = event_data.get("budget_limit", preferences.budget_limit)
-                    
+
                     if itinerary_dict:
+                        # Pass user_id (None for guests)
+                        user_id = current_user.user_id if current_user else None
                         itinerary = await _process_final_itinerary(
-                            itinerary_dict, 
+                            itinerary_dict,
                             final_budget,
-                            db
+                            db,
+                            user_id
                         )
                         
                         SessionService.complete_session(
@@ -226,13 +235,16 @@ async def submit_decision(
     session_id: str,
     decision: HumanDecision,
     request: Request,
-    db = Depends(get_db)
+    db = Depends(get_db),
+    current_user: UserInDB | None = Depends(get_current_user)
 ):
     """
     Submit human decision for HITL checkpoint.
-    
+
+    Supports GUEST FLOW: Authentication is optional.
+
     Returns an SSE stream continuing from where we left off.
-    
+
     Decision options:
     - action: "approve" - Accept current itinerary
     - action: "revise" - Request revision with feedback
@@ -315,17 +327,20 @@ async def submit_decision(
                 elif event_type == "complete":
                     itinerary_dict = event_data.get("itinerary")
                     final_budget = event_data.get("budget_limit")
-                    
+
                     # Get updated budget from session
                     current_session = SessionService.get_session(db, session_id)
                     if final_budget is None:
                         final_budget = current_session.preferences.get("budget_limit", 0)
-                    
+
                     if itinerary_dict:
+                        # Pass user_id (None for guests)
+                        user_id = current_user.user_id if current_user else None
                         itinerary = await _process_final_itinerary(
                             itinerary_dict,
                             final_budget,
-                            db
+                            db,
+                            user_id
                         )
                         
                         SessionService.complete_session(
@@ -486,11 +501,15 @@ def _dict_to_itinerary(itinerary_dict: dict | None, budget_limit: float) -> Itin
 def _save_itinerary_without_geocoding(
     itinerary_dict: dict,
     budget_limit: float,
-    db
+    db,
+    user_id: str | None = None
 ) -> Itinerary:
     """
     Save itinerary immediately WITHOUT geocoding (for optimistic navigation).
     Geocoding happens in background.
+
+    Args:
+        user_id: User ID to associate with trip (None for guest trips)
     """
     from app.schemas.trip import Itinerary, Day, Activity, Location, GeocodingStatus
     import uuid
@@ -543,15 +562,16 @@ def _save_itinerary_without_geocoding(
         trip_title=itinerary_dict.get("trip_title", "Your Trip"),
         days=days,
         budget_limit=budget_limit,
+        user_id=user_id,  # None for guest trips
         geocoding_status=GeocodingStatus(
             status="pending",
             total_activities=total_activities,
             geocoded_activities=0
         )
     )
-    
-    # Save to MongoDB immediately
-    TripService.save_itinerary(db, itinerary)
+
+    # Save to MongoDB immediately (will use save_itinerary_with_user internally)
+    TripService.save_itinerary_with_user(db, itinerary, user_id)
     
     return itinerary
 
@@ -649,16 +669,20 @@ async def _geocode_itinerary_background(trip_id: str, db):
 async def _process_final_itinerary(
     itinerary_dict: dict,
     budget_limit: float,
-    db
+    db,
+    user_id: str | None = None
 ) -> Itinerary:
     """
     Process final itinerary: save immediately, geocode in background.
     Returns the itinerary immediately for optimistic navigation.
+
+    Args:
+        user_id: User ID to associate with trip (None for guest trips)
     """
     import asyncio
-    
+
     # Save immediately without geocoding
-    itinerary = _save_itinerary_without_geocoding(itinerary_dict, budget_limit, db)
+    itinerary = _save_itinerary_without_geocoding(itinerary_dict, budget_limit, db, user_id)
     
     # Spawn background geocoding task
     asyncio.create_task(_geocode_itinerary_background(itinerary.trip_id, db))

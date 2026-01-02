@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, status
 from app.schemas.discovery import (
     Discovery,
     DiscoveredPlace,
@@ -6,12 +6,64 @@ from app.schemas.discovery import (
     DiscoveryType,
     StarPlaceRequest
 )
+from app.schemas.user import UserInDB
 from app.services.discovery import DiscoveryService
 from app.services.trip import TripService
+from app.dependencies.auth import require_auth, get_current_user
 from app.database import get_db
 from datetime import datetime
 
 router = APIRouter()
+
+
+def _verify_trip_access(db, trip_id: str, user_id: str | None):
+    """
+    Verify that the user can access this trip.
+    - Authenticated users: Must own the trip
+    - Guest users: Can only access guest trips (user_id = None)
+
+    Raises HTTPException if not found or not authorized.
+    Returns the trip if access is granted.
+    """
+    trip = TripService.get_itinerary(db, trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Guest trying to access a trip
+    if user_id is None:
+        # Guests can only access guest trips
+        if trip.user_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to access this trip"
+            )
+    else:
+        # Authenticated user trying to access a trip
+        if trip.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this trip"
+            )
+
+    return trip
+
+
+def _check_guest_discovery_limit(db, trip_id: str):
+    """
+    Check if a guest trip has reached the discovery limit (3 discoveries).
+    Raises HTTPException if limit is reached.
+    """
+    GUEST_DISCOVERY_LIMIT = 3
+
+    # Count existing discoveries for this trip
+    discovery_count = db.discoveries.count_documents({"trip_id": trip_id})
+
+    if discovery_count >= GUEST_DISCOVERY_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Guest users are limited to {GUEST_DISCOVERY_LIMIT} discoveries per trip. Please sign up to continue exploring!"
+        )
+
 
 @router.post(
     "/api/trip/{trip_id}/activities/{activity_id}/discover/{place_type}",
@@ -30,16 +82,30 @@ def discover_places(
     activity_id: str,
     place_type: DiscoveryType,
     regenerate: bool = Query(False, description="Regenerate places, keeping starred ones"),
+    current_user: UserInDB | None = Depends(get_current_user),
     db = Depends(get_db)
 ):
     """
     Discover places near an activity.
-    
+
+    Supports GUEST FLOW: Authentication is optional.
+    - Guest users: Limited to 3 discoveries per trip
+    - Authenticated users: Unlimited discoveries
+
     Examples:
     - POST /api/trip/{id}/activities/{id}/discover/restaurant
     - POST /api/trip/{id}/activities/{id}/discover/bar?regenerate=true
     """
-    
+
+    user_id = current_user.user_id if current_user else None
+
+    # Verify trip access (guests can access guest trips, users can access their trips)
+    trip = _verify_trip_access(db, trip_id, user_id)
+
+    # Check discovery limit for guest trips
+    if trip.user_id is None:
+        _check_guest_discovery_limit(db, trip_id)
+
     # Check if activity exists
     activity = TripService.get_activity(db, trip_id, activity_id)
     if not activity:
@@ -97,10 +163,21 @@ def star_place(
     place_type: DiscoveryType,
     place_id: str,
     request: StarPlaceRequest,
+    current_user: UserInDB | None = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    """Star or unstar a discovered place"""
-    
+    """
+    Star or unstar a discovered place.
+
+    Supports GUEST FLOW: Authentication is optional.
+    Guests can star places in their guest trips.
+    """
+
+    user_id = current_user.user_id if current_user else None
+
+    # Verify trip access
+    _verify_trip_access(db, trip_id, user_id)
+
     # Verify discovery exists
     discovery = DiscoveryService.get_discovery(db, trip_id, activity_id, place_type)
     if not discovery:
@@ -128,14 +205,20 @@ def star_place(
 def get_all_discoveries(
     trip_id: str,
     place_type: DiscoveryType | None = Query(None, description="Filter by place type"),
+    current_user: UserInDB | None = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    """Get all discoveries for a trip, optionally filtered by place type"""
-    
-    # Get itinerary to enrich responses with activity names
-    itinerary = TripService.get_itinerary(db, trip_id)
-    if not itinerary:
-        raise HTTPException(status_code=404, detail="Trip not found")
+    """
+    Get all discoveries for a trip, optionally filtered by place type.
+
+    Supports GUEST FLOW: Authentication is optional.
+    Guests can view discoveries for their guest trips.
+    """
+
+    user_id = current_user.user_id if current_user else None
+
+    # Verify trip access and get itinerary
+    itinerary = _verify_trip_access(db, trip_id, user_id)
     
     # Build activity map
     activity_map = {}
@@ -172,10 +255,21 @@ def delete_discovery(
     trip_id: str,
     activity_id: str,
     place_type: DiscoveryType,
+    current_user: UserInDB | None = Depends(get_current_user),
     db = Depends(get_db)
 ):
-    """Delete a discovery (clears all places for an activity/type)"""
-    
+    """
+    Delete a discovery (clears all places for an activity/type).
+
+    Supports GUEST FLOW: Authentication is optional.
+    Guests can delete discoveries from their guest trips.
+    """
+
+    user_id = current_user.user_id if current_user else None
+
+    # Verify trip access
+    _verify_trip_access(db, trip_id, user_id)
+
     result = db.discoveries.delete_one({
         "trip_id": trip_id,
         "activity_id": activity_id,
