@@ -184,12 +184,8 @@ function App() {
         {/* New Trip Planning Flow - Public (guest access) */}
         <Route path="/new" element={<PlanningFlow />} />
 
-        {/* View Saved Trip - Protected */}
-        <Route path="/trip" element={
-          <PrivateRoute>
-            <TripPage />
-          </PrivateRoute>
-        } />
+        {/* View Trip - Public (guests can view generated trips) */}
+        <Route path="/trip" element={<TripPage />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
