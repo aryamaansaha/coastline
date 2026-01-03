@@ -9,8 +9,9 @@ from app.schemas.trip import (
 from app.schemas.user import UserInDB
 from app.services.trip import TripService
 # from app.services.agent_service import AgentService
-from app.dependencies.auth import require_auth
+from app.dependencies.auth import require_auth, get_current_user
 from app.database import get_db
+from typing import Optional
 # import os
 
 router = APIRouter()
@@ -89,21 +90,32 @@ def list_trips(
 
 
 @router.get("/api/trip/{trip_id}", response_model=Itinerary)
-def get_trip(
+async def get_trip(
     trip_id: str,
-    current_user: UserInDB = Depends(require_auth),
+    current_user: Optional[UserInDB] = Depends(get_current_user),
     db = Depends(get_db)
 ):
     """
     Get a specific trip itinerary by ID.
 
-    Requires authentication and verifies ownership.
+    - Guest trips (user_id = None): Anyone can view
+    - Owned trips: Requires authentication and ownership verification
     """
     itinerary = TripService.get_itinerary(db, trip_id)
     if not itinerary:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    # Verify ownership
+    # Guest trip (no owner) - anyone can view
+    if itinerary.user_id is None:
+        return itinerary
+
+    # Owned trip - require auth and verify ownership
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to view this trip"
+        )
+
     if itinerary.user_id != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
