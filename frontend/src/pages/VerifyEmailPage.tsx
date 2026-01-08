@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import styles from './AuthPages.module.css';
 
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { isAuthenticated, refreshUser } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -37,9 +39,14 @@ export function VerifyEmailPage() {
 
         setIsSuccess(true);
 
-        // Redirect to login after 3 seconds
+        // Refresh user data if logged in (to update is_verified status)
+        if (isAuthenticated) {
+          await refreshUser();
+        }
+
+        // Redirect after 3 seconds - to trips if logged in, login if not
         setTimeout(() => {
-          navigate('/login');
+          navigate(isAuthenticated ? '/trips' : '/login');
         }, 3000);
       } catch (err: any) {
         setError(err.message || 'Failed to verify email. The link may be expired or invalid.');
@@ -49,7 +56,7 @@ export function VerifyEmailPage() {
     };
 
     verifyEmail();
-  }, [token, API_BASE_URL, navigate]);
+  }, [token, API_BASE_URL, navigate, isAuthenticated, refreshUser]);
 
   if (isLoading) {
     return (
@@ -90,12 +97,12 @@ export function VerifyEmailPage() {
           </div>
 
           <div className={styles.successMessage}>
-            Redirecting to login page...
+            {isAuthenticated ? 'Redirecting to your trips...' : 'Redirecting to login page...'}
           </div>
 
           <div className={styles.authFooter}>
-            <Link to="/login" className={styles.authLink}>
-              Go to login now
+            <Link to={isAuthenticated ? '/trips' : '/login'} className={styles.authLink}>
+              {isAuthenticated ? 'Go to trips now' : 'Go to login now'}
             </Link>
           </div>
         </div>

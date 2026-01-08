@@ -14,14 +14,16 @@ export const TripsListPage = () => {
   const navigate = useNavigate();
   const { listTrips, deleteTrip, loading } = useTrips();
   const { activeSession, hasActiveSession, resetTrip } = useTrip();
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
   const [trips, setTrips] = useState<TripSummary[]>([]);
   const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
   const [elapsedTime, setElapsedTime] = useState('');
 
   useEffect(() => {
+    // Refresh user data to get latest verification status
+    refreshUser();
     listTrips().then(setTrips);
-  }, [listTrips]);
+  }, [listTrips, refreshUser]);
 
   // Update elapsed time for in-progress card
   useEffect(() => {
