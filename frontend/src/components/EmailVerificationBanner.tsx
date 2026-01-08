@@ -8,7 +8,7 @@ export function EmailVerificationBanner() {
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<'success' | 'error' | null>(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8008';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
   // Don't show banner if user is verified, not authenticated, or dismissed
   if (!user || user.is_verified || isDismissed) {

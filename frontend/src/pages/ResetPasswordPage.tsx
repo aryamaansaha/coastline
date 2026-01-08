@@ -12,7 +12,7 @@ export function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8008';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const token = searchParams.get('token');
 
   useEffect(() => {
