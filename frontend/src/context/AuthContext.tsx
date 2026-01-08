@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 // User type matching backend UserResponse
@@ -117,13 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const refreshUser = async () => {
-    if (!token) return;
+  const refreshUser = useCallback(async () => {
+    const currentToken = localStorage.getItem(TOKEN_KEY);
+    if (!currentToken) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${currentToken}`
         }
       });
 
@@ -132,13 +133,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
       } else {
         // Token is invalid, log out
-        logout();
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
       }
     } catch (error) {
       console.error('Failed to refresh user:', error);
-      logout();
+      localStorage.removeItem(TOKEN_KEY);
+      setToken(null);
+      setUser(null);
     }
-  };
+  }, []);
 
   const value: AuthContextType = {
     user,

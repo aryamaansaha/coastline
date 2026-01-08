@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './AuthPages.module.css';
@@ -11,17 +11,23 @@ export function VerifyEmailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const hasVerified = useRef(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const token = searchParams.get('token');
 
   useEffect(() => {
+    // Only run once
+    if (hasVerified.current) return;
+
     const verifyEmail = async () => {
       if (!token) {
         setError('Invalid or missing verification token');
         setIsLoading(false);
         return;
       }
+
+      hasVerified.current = true;
 
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
@@ -40,13 +46,11 @@ export function VerifyEmailPage() {
         setIsSuccess(true);
 
         // Refresh user data if logged in (to update is_verified status)
-        if (isAuthenticated) {
-          await refreshUser();
-        }
+        await refreshUser();
 
-        // Redirect after 3 seconds - to trips if logged in, login if not
+        // Redirect after 3 seconds
         setTimeout(() => {
-          navigate(isAuthenticated ? '/trips' : '/login');
+          navigate('/trips');
         }, 3000);
       } catch (err: any) {
         setError(err.message || 'Failed to verify email. The link may be expired or invalid.');
@@ -56,7 +60,8 @@ export function VerifyEmailPage() {
     };
 
     verifyEmail();
-  }, [token, API_BASE_URL, navigate, isAuthenticated, refreshUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   if (isLoading) {
     return (
@@ -97,12 +102,12 @@ export function VerifyEmailPage() {
           </div>
 
           <div className={styles.successMessage}>
-            {isAuthenticated ? 'Redirecting to your trips...' : 'Redirecting to login page...'}
+            Redirecting to your trips...
           </div>
 
           <div className={styles.authFooter}>
-            <Link to={isAuthenticated ? '/trips' : '/login'} className={styles.authLink}>
-              {isAuthenticated ? 'Go to trips now' : 'Go to login now'}
+            <Link to="/trips" className={styles.authLink}>
+              Go to trips now
             </Link>
           </div>
         </div>

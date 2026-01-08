@@ -19,11 +19,15 @@ export const TripsListPage = () => {
   const [deleteModal, setDeleteModal] = useState<{ tripId: string; tripTitle: string; isError?: boolean } | null>(null);
   const [elapsedTime, setElapsedTime] = useState('');
 
+  // Refresh user data once on mount to get latest verification status
   useEffect(() => {
-    // Refresh user data to get latest verification status
     refreshUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     listTrips().then(setTrips);
-  }, [listTrips, refreshUser]);
+  }, [listTrips]);
 
   // Update elapsed time for in-progress card
   useEffect(() => {
