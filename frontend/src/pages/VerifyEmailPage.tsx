@@ -6,7 +6,7 @@ import styles from './AuthPages.module.css';
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isAuthenticated, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
